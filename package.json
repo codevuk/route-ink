@@ -1,0 +1,27 @@
+{
+  "name": "route-ink",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "keywords": [],
+  "author": "Vuk Stanojevic",
+  "packageManager": "pnpm@10.6.1",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/node": "^25.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-only-warn": "^1.2.1",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}
