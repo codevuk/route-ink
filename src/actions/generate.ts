@@ -1,6 +1,10 @@
 import path from "path";
+import { Project } from "ts-morph";
 import { derivePrefix } from "../parsing/derivePrefix.js";
 import { findRouteFiles } from "../parsing/findRouteFiles.js";
+import { getSchemaImports } from "../parsing/getSchemaImports.js";
+import type { RouteFile } from "../types/RouteFile.js";
+import { logger } from "../util/logger.js";
 import { loadConfig } from "./load-config.js";
 
 export const generate = async () => {
@@ -16,17 +20,35 @@ export const generate = async () => {
 
     const { config } = result;
 
-    const routes = findRouteFiles(config.routesDir);
+    const sourceRouteFiles = findRouteFiles(config.routesDir);
 
     console.log("Found route files:");
 
-    for (const routeFile of routes) {
-      const relativePath = path.relative(config.routesDir, routeFile);
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      compilerOptions: {
+        skipLibCheck: true,
+        noEmit: true,
+      },
+    });
 
+    const routes: RouteFile[] = [];
+
+    for (const filePath of sourceRouteFiles) {
+      const sourceFile = project.addSourceFileAtPath(filePath);
+      const relativePath = path.relative(config.routesDir, filePath);
       const prefix = derivePrefix(relativePath);
 
-      console.log(`- ${routeFile} → ${prefix}`);
+      routes.push({
+        fullPath: filePath,
+        relativePath,
+        route: prefix,
+        sourceFile,
+        schemaImports: getSchemaImports(sourceFile, config),
+      });
     }
+
+    logger(routes);
 
   }
   catch (error) {
