@@ -1,3 +1,4 @@
+import { findRouteFiles } from "../parsing/findRouteFiles.js";
 import { loadConfig } from "./load-config.js";
 
 export const generate = async () => {
@@ -8,11 +9,14 @@ export const generate = async () => {
 
     if (!result.success) {
       console.error("Failed to load config:", result.error);
-      process.exit(1);
+      return process.exit(1);
     }
 
-    console.log("Config loaded:", result.config);
+    const { config } = result;
 
+    const routes = findRouteFiles(config.routesDir);
+
+    console.log("Found route files:", routes);
   }
   catch (error) {
     console.error("Error loading config:", error);

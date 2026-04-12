@@ -24,7 +24,6 @@ export const loadConfig = async (): Promise<LoadConfigResult> => {
     };
   }
 
-
   const [parsingError, parsedData] = await to(JSON.parse(fileContent))
 
   if (parsingError) {

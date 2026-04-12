@@ -20,7 +20,8 @@
     "*.ts": "${capture}.test.ts, ${capture}.spec.ts",
   },
   "cSpell.words": [
-    "Stanojevic",
+    "routeink",
+    "Stanojevic"
   ],
 
 }
