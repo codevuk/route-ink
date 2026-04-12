@@ -5,6 +5,7 @@ import { getPropertyObjectValue } from "./util/getPropertyObjectValue.js";
 import { getPropertyValue } from "./util/getPropertyValue.js";
 import { isInsideHandlerFunction } from "./util/isInsideHandlerFunction.js";
 import { joinPaths } from "./util/joinPaths.js";
+import { parseResponseObject } from "./util/parseResponseObject.js";
 
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
@@ -92,7 +93,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
       body: getPropertyValue(schemaObj, 'body'),
       query: getPropertyValue(schemaObj, 'querystring'),
       params: getPropertyValue(schemaObj, 'params'),
-      response: getPropertyObjectValue(schemaObj, 'response') || {},
+      response: parseResponseObject(getPropertyObjectValue(schemaObj, 'response') || {}),
     });
   }
 
