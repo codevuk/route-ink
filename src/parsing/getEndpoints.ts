@@ -1,5 +1,6 @@
 import { ObjectLiteralExpression, SyntaxKind, type SourceFile } from "ts-morph";
 import type { Endpoint } from "../types/Endpoint.js";
+import { extractSchemaIdentifiers } from "./util/extractSchemaIdentifiers.js";
 import { getPropertyAssignment } from "./util/getPropertyAssignment.js";
 import { getPropertyObjectValue } from "./util/getPropertyObjectValue.js";
 import { getPropertyValue } from "./util/getPropertyValue.js";
@@ -9,8 +10,14 @@ import { parseResponseObject } from "./util/parseResponseObject.js";
 
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
-export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefix: string): Endpoint[] => {
+export const getEndpoints = (
+  sourceFile: SourceFile,
+  relativePath: string,
+  prefix: string,
+  availableSchemaImports: string[]
+): Endpoint[] => {
   const fastifyParamName = "fastify";
+  const availableImportsSet = new Set(availableSchemaImports);
 
   const endpoints: Endpoint[] = [];
 
@@ -58,12 +65,10 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     // If it's a function (2-arg form: path + handler), there's no schema — silently skip.
     const optionsArg = args[1];
 
-    if (
-      optionsArg?.isKind(SyntaxKind.ArrowFunction) ||
-      optionsArg?.isKind(SyntaxKind.FunctionExpression)
-    ) {
+    if (optionsArg?.isKind(SyntaxKind.ArrowFunction) || optionsArg?.isKind(SyntaxKind.FunctionExpression)) {
       continue;
     }
+
     if (!optionsArg?.isKind(SyntaxKind.ObjectLiteralExpression)) {
       console.warn(`Could not parse route definition at ${relativePath}:${line} — skipping`);
       continue;
@@ -86,6 +91,37 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
 
     const schemaObj = schemaInit as ObjectLiteralExpression;
 
+    // Extract schema identifiers for this endpoint
+    const endpointSchemaImports = new Set<string>();
+
+    // Extract from body
+    const bodyProp = getPropertyAssignment(schemaObj, 'body');
+    if (bodyProp) {
+      const identifiers = extractSchemaIdentifiers(bodyProp.getInitializer(), availableImportsSet);
+      identifiers.forEach(id => endpointSchemaImports.add(id));
+    }
+
+    // Extract from query/querystring
+    const queryProp = getPropertyAssignment(schemaObj, 'querystring');
+    if (queryProp) {
+      const identifiers = extractSchemaIdentifiers(queryProp.getInitializer(), availableImportsSet);
+      identifiers.forEach(id => endpointSchemaImports.add(id));
+    }
+
+    // Extract from params
+    const paramsProp = getPropertyAssignment(schemaObj, 'params');
+    if (paramsProp) {
+      const identifiers = extractSchemaIdentifiers(paramsProp.getInitializer(), availableImportsSet);
+      identifiers.forEach(id => endpointSchemaImports.add(id));
+    }
+
+    // Extract from response
+    const responseProp = getPropertyAssignment(schemaObj, 'response');
+    if (responseProp) {
+      const identifiers = extractSchemaIdentifiers(responseProp.getInitializer(), availableImportsSet);
+      identifiers.forEach(id => endpointSchemaImports.add(id));
+    }
+
     endpoints.push({
       method: methodName.toUpperCase() as Endpoint["method"],
       path: fullPath,
@@ -94,6 +130,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
       query: getPropertyValue(schemaObj, 'querystring'),
       params: getPropertyValue(schemaObj, 'params'),
       response: parseResponseObject(getPropertyObjectValue(schemaObj, 'response') || {}),
+      schemaImports: Array.from(endpointSchemaImports),
     });
   }
 

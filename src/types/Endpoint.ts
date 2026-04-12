@@ -2,6 +2,7 @@ export type Endpoint = {
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTIONS" | "HEAD";
   path: string;
   operationId: string;
+  schemaImports: string[];
   description?: string;
   query?: string | undefined;
   params?: string | undefined;

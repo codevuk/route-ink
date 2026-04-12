@@ -9,6 +9,7 @@ export const logger = (routes: RouteFile[]) => {
 
     for (const endpoint of route.endpoints) {
       console.log(`   - ${endpoint.method} ${endpoint.path} ${endpoint.operationId}`);
+      console.log(`     - schemaImports: ${endpoint.schemaImports.join(", ") || "(none)"}`);
       console.log(`     - query: ${endpoint.query}`);
       console.log(`     - params: ${endpoint.params}`);
       console.log(`     - body: ${endpoint.body}`);

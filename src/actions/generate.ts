@@ -1,10 +1,4 @@
-import path from "path";
-import { Project } from "ts-morph";
-import { derivePrefix } from "../parsing/derivePrefix.js";
-import { findRouteFiles } from "../parsing/findRouteFiles.js";
-import { getEndpoints } from "../parsing/getEndpoints.js";
-import { getSchemaImports } from "../parsing/getSchemaImports.js";
-import type { RouteFile } from "../types/RouteFile.js";
+import { parseRouteFiles } from "../parsing/parseRouteFile.js";
 import { logger } from "../util/logger.js";
 import { loadConfig } from "./load-config.js";
 
@@ -21,32 +15,7 @@ export const generate = async () => {
 
     const { config } = result;
 
-    const sourceRouteFiles = findRouteFiles(config.routesDir);
-
-    const project = new Project({
-      skipAddingFilesFromTsConfig: true,
-      compilerOptions: {
-        skipLibCheck: true,
-        noEmit: true,
-      },
-    });
-
-    const routes: RouteFile[] = [];
-
-    for (const filePath of sourceRouteFiles) {
-      const sourceFile = project.addSourceFileAtPath(filePath);
-      const relativePath = path.relative(config.routesDir, filePath);
-      const prefix = derivePrefix(relativePath);
-
-      routes.push({
-        fullPath: filePath,
-        relativePath,
-        route: prefix,
-        sourceFile,
-        schemaImports: getSchemaImports(sourceFile, config),
-        endpoints: getEndpoints(sourceFile, relativePath, prefix),
-      });
-    }
+    const routes = parseRouteFiles(config);
 
     logger(routes);
 
