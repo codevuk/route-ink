@@ -44,7 +44,7 @@ export const generate = async () => {
         route: prefix,
         sourceFile,
         schemaImports: getSchemaImports(sourceFile, config),
-        endpoints: getEndpoints(sourceFile, relativePath),
+        endpoints: getEndpoints(sourceFile, relativePath, prefix),
       });
     }
 
