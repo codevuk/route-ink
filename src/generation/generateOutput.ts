@@ -1,9 +1,13 @@
 import type { Config } from "../schemas/config.schema.js";
 import type { RouteFile } from "../types/RouteFile.js";
-import { deduplicate } from "../util/deduplicate.js";
+import { createUtilFiles } from "./createUtilFiles.js";
 
-export const generateOutput = async (routes: RouteFile, config: Config) => {
-  const { outputDir, schemaPackage } = config;
-
-  const imports = deduplicate(routes.schemaImports);
+export const generateOutput = async (routes: RouteFile[], config: Config) => {
+  try {
+    createUtilFiles(config);
+  }
+  catch (error) {
+    console.error("Error creating utility files:", error);
+    process.exit(1);
+  }
 }

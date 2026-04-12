@@ -11,10 +11,7 @@ import { Node, SyntaxKind } from "ts-morph";
  * @param availableImports Set of imported schema names from the schema package
  * @returns Array of unique schema identifiers used in this node
  */
-export function extractSchemaIdentifiers(
-  node: Node | undefined,
-  availableImports: Set<string>
-): string[] {
+export function extractSchemaIdentifiers(node: Node | undefined, availableImports: Set<string>): string[] {
   if (!node) {
     return [];
   }
@@ -22,17 +19,19 @@ export function extractSchemaIdentifiers(
   const identifiers = new Set<string>();
 
   // Recursively find all identifiers in the node
-  const findIdentifiers = (n: Node) => {
+  const findIdentifiers = (node: Node) => {
     // If it's an identifier, check if it's in our available imports
-    if (n.isKind(SyntaxKind.Identifier)) {
-      const name = n.getText();
+    if (node.isKind(SyntaxKind.Identifier)) {
+
+      const name = node.getText();
+
       if (availableImports.has(name)) {
         identifiers.add(name);
       }
     }
 
     // Recursively process children
-    n.forEachChild(findIdentifiers);
+    node.forEachChild(findIdentifiers);
   };
 
   findIdentifiers(node);

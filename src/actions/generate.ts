@@ -1,3 +1,4 @@
+import { generateOutput } from "../generation/generateOutput.js";
 import { parseRouteFiles } from "../parsing/parseRouteFile.js";
 import { logger } from "../util/logger.js";
 import { loadConfig } from "./load-config.js";
@@ -16,6 +17,7 @@ export const generate = async () => {
     const { config } = result;
 
     const routes = parseRouteFiles(config);
+    generateOutput(routes, config);
 
     logger(routes);
 

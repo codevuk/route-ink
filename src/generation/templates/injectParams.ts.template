@@ -1,0 +1,10 @@
+import z, { ZodObject, ZodRawShape } from "zod/v4";
+
+export const injectParams = <T extends ZodRawShape>(path: string, schema: ZodObject<T>, params: z.output<ZodObject<T>>): string => {
+  const parsed = schema.parse(params);
+
+  return Object.entries(parsed).reduce(
+    (acc, [key, value]) => acc.replace(`:${key}`, String(value)),
+    path,
+  );
+};

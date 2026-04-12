@@ -1,0 +1,7 @@
+export const buildQueryKey = (endpoint: string, serializedSearchQuery?: string): string[] => {
+  const baseKey = endpoint.split("/").filter(Boolean);
+
+  return serializedSearchQuery
+    ? [...baseKey, serializedSearchQuery]
+    : baseKey;
+};

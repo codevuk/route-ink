@@ -10,12 +10,7 @@ import { parseResponseObject } from "./util/parseResponseObject.js";
 
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
-export const getEndpoints = (
-  sourceFile: SourceFile,
-  relativePath: string,
-  prefix: string,
-  availableSchemaImports: string[]
-): Endpoint[] => {
+export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefix: string, availableSchemaImports: string[]): Endpoint[] => {
   const fastifyParamName = "fastify";
   const availableImportsSet = new Set(availableSchemaImports);
 
@@ -130,7 +125,7 @@ export const getEndpoints = (
       query: getPropertyValue(schemaObj, 'querystring'),
       params: getPropertyValue(schemaObj, 'params'),
       response: parseResponseObject(getPropertyObjectValue(schemaObj, 'response') || {}),
-      schemaImports: Array.from(endpointSchemaImports),
+      schemaImports: [...endpointSchemaImports],
     });
   }
 
