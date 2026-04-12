@@ -1,3 +1,5 @@
+import path from "path";
+import { derivePrefix } from "../parsing/derivePrefix.js";
 import { findRouteFiles } from "../parsing/findRouteFiles.js";
 import { loadConfig } from "./load-config.js";
 
@@ -16,7 +18,16 @@ export const generate = async () => {
 
     const routes = findRouteFiles(config.routesDir);
 
-    console.log("Found route files:", routes);
+    console.log("Found route files:");
+
+    for (const routeFile of routes) {
+      const relativePath = path.relative(config.routesDir, routeFile);
+
+      const prefix = derivePrefix(relativePath);
+
+      console.log(`- ${routeFile} → ${prefix}`);
+    }
+
   }
   catch (error) {
     console.error("Error loading config:", error);
