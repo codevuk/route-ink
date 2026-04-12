@@ -2,6 +2,22 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { defineConfig } from 'tsup';
 
+function copyDir(src: string, dest: string) {
+  mkdirSync(dest, { recursive: true });
+  const entries = readdirSync(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
@@ -18,16 +34,7 @@ export default defineConfig({
     const distTemplates = 'dist/templates';
 
     if (existsSync(srcTemplates)) {
-      mkdirSync(distTemplates, { recursive: true });
-      const files = readdirSync(srcTemplates);
-
-      for (const file of files) {
-        copyFileSync(
-          join(srcTemplates, file),
-          join(distTemplates, file)
-        );
-      }
-
+      copyDir(srcTemplates, distTemplates);
       console.log('✓ Copied template files to dist');
     }
   },

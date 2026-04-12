@@ -21,11 +21,12 @@ export const createUtilFiles = (config: Config) => {
   fs.mkdirSync(utilPath, { recursive: true });
 
   // Copy template files
-  // In dev: src/generation -> src/generation/templates
-  // In prod: dist/generation -> dist/templates
-  const templatesDir = fs.existsSync(path.join(__dirname, "templates"))
-    ? path.join(__dirname, "templates")
-    : path.join(__dirname, "../templates");
+  // In dev: src/generation -> src/generation/templates/util
+  // In prod: dist/generation -> dist/templates/util
+  const templatesDir = fs.existsSync(path.join(__dirname, "templates/util"))
+    ? path.join(__dirname, "templates/util")
+    : path.join(__dirname, "../templates/util");
+
   const templateFiles = fs.readdirSync(templatesDir);
 
   for (const templateFile of templateFiles) {
