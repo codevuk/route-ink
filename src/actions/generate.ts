@@ -2,6 +2,7 @@ import path from "path";
 import { Project } from "ts-morph";
 import { derivePrefix } from "../parsing/derivePrefix.js";
 import { findRouteFiles } from "../parsing/findRouteFiles.js";
+import { getEndpoints } from "../parsing/getEndpoints.js";
 import { getSchemaImports } from "../parsing/getSchemaImports.js";
 import type { RouteFile } from "../types/RouteFile.js";
 import { logger } from "../util/logger.js";
@@ -21,8 +22,6 @@ export const generate = async () => {
     const { config } = result;
 
     const sourceRouteFiles = findRouteFiles(config.routesDir);
-
-    console.log("Found route files:");
 
     const project = new Project({
       skipAddingFilesFromTsConfig: true,
@@ -45,6 +44,7 @@ export const generate = async () => {
         route: prefix,
         sourceFile,
         schemaImports: getSchemaImports(sourceFile, config),
+        endpoints: getEndpoints(sourceFile, relativePath),
       });
     }
 
