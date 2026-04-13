@@ -7,7 +7,7 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
   const { schemaPackage } = config;
   const { query, params, schemaImports, response } = endpoint;
 
-  let templateFile: string | null = null;
+  let templateFile: string;
 
   if (params && query) {
     templateFile = "get-with-query-and-params.ts.template";
@@ -20,11 +20,6 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
   }
   else {
     templateFile = "get-basic.ts.template";
-    return "";
-  }
-
-  if (!templateFile) {
-    return "";
   }
 
   const template = loadTemplateFile(templateFile);

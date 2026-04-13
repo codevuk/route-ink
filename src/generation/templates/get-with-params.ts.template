@@ -13,7 +13,9 @@ type @identifier@SuspenseQueryInput = {
   params: z.output<typeof @params_schema@>;
 };
 
-export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof @response_schema@>>, "queryFn">) => {
+const ResponseSchema = @response_schema@;
+
+export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof ResponseSchema>>, "queryFn">) => {
   const { params } = input;
 
   const url = injectParams("@path", @params_schema@, params);
@@ -27,13 +29,13 @@ export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInp
         signal: context.signal,
       });
 
-      const output = @response_schema@.safeParse(response.data);
+      const output = ResponseSchema.safeParse(response.data);
 
       if (!output.success) {
         console.error("Response validation failed:", output.error);
       }
 
-      return (output.data || response.data) as z.output<typeof @response_schema@>;
+      return (output.data || response.data) as z.output<typeof ResponseSchema>;
     },
     ...options,
   });

@@ -6,8 +6,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const loadTemplateFile = (templateName: string): string => {
-  // In dev: src/generation/util -> ../templates
-  // In prod: dist/generation/util -> ../../templates
+  // In dev: src/generation -> src/generation/templates
+  // In prod: dist/generation -> dist/templates
   const templatesDir = fs.existsSync(path.join(__dirname, "templates"))
     ? path.join(__dirname, "templates")
     : path.join(__dirname, "../templates");

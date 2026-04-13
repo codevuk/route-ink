@@ -7,18 +7,19 @@ import axios from "axios";
 import { Except } from "type-fest";
 import z from "zod/v4";
 import { @schema_imports@ } from "@schema_package@";
-import { buildQueryKey, serializeSearchQuery } from "@nesting@util";
+import { buildQueryKey, injectParams, serializeSearchQuery } from "@nesting@util";
 
 type @identifier@SuspenseQueryInput = {
+  params: z.output<typeof @params_schema@>;
   query: z.output<typeof @query_schema@>;
 };
 
 const ResponseSchema = @response_schema@;
 
 export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof ResponseSchema>>, "queryFn">) => {
-  const { query } = input;
-  const url = "@path@";
+  const { params, query } = input;
 
+  const url = injectParams("@path@", @params_schema@, params);
   const searchQuery = serializeSearchQuery(query);
 
   const queryKey = options?.queryKey || buildQueryKey(url, query);
@@ -26,7 +27,7 @@ export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInp
   return useSuspenseQuery({
     queryKey,
     queryFn: async (context) => {
-      const response = await axios.get(`url?${searchQuery}`, {
+      const response = await axios.get(`${url}?${searchQuery}`, {
         signal: context.signal,
       });
 
