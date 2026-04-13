@@ -9,7 +9,9 @@
   },
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "Vuk Stanojevic",
@@ -22,7 +24,8 @@
     "eslint-plugin-only-warn": "^1.2.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.0",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "commander": "^14.0.3",
