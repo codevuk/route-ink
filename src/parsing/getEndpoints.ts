@@ -1,5 +1,6 @@
 import { ObjectLiteralExpression, SyntaxKind, type SourceFile } from "ts-morph";
 import type { Endpoint } from "../types/Endpoint.js";
+import { stripQuotes } from "../util/stripQuotes.js";
 import { extractSchemaIdentifiers } from "./util/extractSchemaIdentifiers.js";
 import { getPropertyAssignment } from "./util/getPropertyAssignment.js";
 import { getPropertyObjectValue } from "./util/getPropertyObjectValue.js";
@@ -127,7 +128,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     endpoints.push({
       method: methodName.toUpperCase() as Endpoint["method"],
       path: fullPath,
-      operationId,
+      operationId: stripQuotes(operationId),
       body: getPropertyValue(schemaObj, 'body'),
       query: getPropertyValue(schemaObj, 'querystring'),
       params: getPropertyValue(schemaObj, 'params'),

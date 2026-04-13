@@ -22,13 +22,7 @@ export const use@identifier@SuspenseQuery = (options?: Except<UseSuspenseQueryOp
         signal: context.signal,
       });
 
-      const output = @response_schema_ref@.safeParse(response.data);
-
-      if (!output.success) {
-        console.error("Response validation failed:", output.error);
-      }
-
-      return (output.data || response.data) as z.output<typeof @response_schema_ref@>;
+      return @response_schema_ref@.parse(response.data);
     },
     ...options,
   });
