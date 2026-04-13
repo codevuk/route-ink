@@ -7,16 +7,18 @@ import { isComplexSchema } from "./util/isComplexSchema.js";
 export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLevel: number): string => {
   const { schemaPackage } = config;
   const { body, params, schemaImports, response } = endpoint;
+  const supportsBody = endpoint.method !== "DELETE";
+  const effectiveBody = supportsBody ? body : undefined;
 
   let templateFile: string;
 
-  if (body && params) {
+  if (effectiveBody && params) {
     templateFile = "mutation-with-body-and-params.ts.template";
   }
   else if (params) {
     templateFile = "mutation-with-params.ts.template";
   }
-  else if (body) {
+  else if (effectiveBody) {
     templateFile = "mutation-with-body.ts.template";
   }
   else {
@@ -30,7 +32,7 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
   const responseSchema = response[200] || response[201] || response[202] || response[204];
   const hasResponseSchema = Boolean(responseSchema);
   const isResponseComplex = isComplexSchema(responseSchema);
-  const isBodyComplex = isComplexSchema(body);
+  const isBodyComplex = isComplexSchema(effectiveBody);
   const isParamsComplex = isComplexSchema(params);
 
   const responseSchemaRef = hasResponseSchema
@@ -39,13 +41,9 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
       : responseSchema
     : undefined;
 
-  const axiosRequestWithBody = endpoint.method === "DELETE"
-    ? "axios.delete(urlWithParams, { data: body })"
-    : `axios.${endpoint.method.toLowerCase()}(urlWithParams, body)`;
+  const axiosRequestWithBody = `axios.${endpoint.method.toLowerCase()}(urlWithParams, body)`;
 
-  const axiosRequestBodyOnly = endpoint.method === "DELETE"
-    ? "axios.delete(url, { data: body })"
-    : `axios.${endpoint.method.toLowerCase()}(url, body)`;
+  const axiosRequestBodyOnly = `axios.${endpoint.method.toLowerCase()}(url, body)`;
 
   const axiosRequestParamsOnly = `axios.${endpoint.method.toLowerCase()}(urlWithParams)`;
   const axiosRequestBasic = `axios.${endpoint.method.toLowerCase()}(url)`;
@@ -58,13 +56,13 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
     schema_imports: [...new Set(schemaImports)].join(", "),
     schema_package: schemaPackage,
     nesting,
-    body_schema: body,
+    body_schema: effectiveBody,
     body_schema_const: isBodyComplex
-      ? `const BodySchema = ${body};`
+      ? `const BodySchema = ${effectiveBody};`
       : "",
     body_schema_ref: isBodyComplex
       ? "BodySchema"
-      : body,
+      : effectiveBody,
     params_schema: params,
     params_schema_const: isParamsComplex
       ? `const ParamsSchema = ${params};`
@@ -84,7 +82,7 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
       : "undefined",
     mutation_response_value: responseSchemaRef
       ? `${responseSchemaRef}.parse(response.data)`
-      : "response.data",
+      : "undefined",
     axios_request_with_body: axiosRequestWithBody,
     axios_request_body_only: axiosRequestBodyOnly,
     axios_request_params_only: axiosRequestParamsOnly,

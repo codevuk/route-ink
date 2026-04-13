@@ -104,7 +104,6 @@ Output root:
 Notes:
 
 - Mutation responses are optional.
-- For `DELETE` with a body, generated Axios calls use `{ data: body }`.
 
 ## Validation and CLI Output
 
