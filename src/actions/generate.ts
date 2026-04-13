@@ -28,26 +28,27 @@ export const generate = async () => {
     const warnings: string[] = [];
 
     const routes = parseRouteFiles(config, warnings);
+    const endpointsCount = routes.reduce((sum, rf) => sum + rf.endpoints.length, 0);
     console.log(`${formatBadge("OK", "success")} Parsed route files`);
 
     const errors = validateRouteFiles(routes);
 
     if (warnings.length > 0) {
-      printTable(color("Warnings", ANSI.yellow), warnings.map((warning) => color(warning, ANSI.yellow)));
+      printTable(color("Warnings", ANSI.yellow), warnings, ANSI.yellow);
     }
 
     if (errors.length > 0) {
-      printTable(color("Validation Errors", ANSI.red), errors.map((error) => color(error, ANSI.red)));
+      printTable(color("Validation Errors", ANSI.red), errors, ANSI.red);
     }
 
     if (errors.length > 0) {
-      printSummary(routes.length, warnings.length, errors.length);
+      printSummary(routes.length, endpointsCount, warnings.length, errors.length);
       console.error(`\n${formatBadge("FAILED", "error")} Aborting generation due to validation errors.`);
       return process.exit(1);
     }
 
     generateOutput(routes, config);
-    printSummary(routes.length, warnings.length, errors.length);
+    printSummary(routes.length, endpointsCount, warnings.length, errors.length);
     console.log(`\n${formatBadge("SUCCESS", "success")} API client generated.`);
 
     // logger(routes);
