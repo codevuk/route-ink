@@ -27,7 +27,7 @@ export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInp
   return useSuspenseQuery({
     queryKey,
     queryFn: async (context) => {
-      const response = await axios.get(`url?${searchQuery}`, {
+      const response = await axios.get(`${url}?${searchQuery}`, {
         signal: context.signal,
       });
 
