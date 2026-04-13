@@ -1,6 +1,5 @@
 import { generateOutput } from "../generation/generateOutput.js";
 import { parseRouteFiles } from "../parsing/parseRouteFile.js";
-import { logger } from "../util/logger.js";
 import { validateRouteFiles } from "../validation/validateRouteFiles.js";
 import { loadConfig } from "./load-config.js";
 
@@ -44,7 +43,7 @@ export const generate = async () => {
 
     generateOutput(routes, config);
 
-    logger(routes);
+    // logger(routes);
 
   }
   catch (error) {

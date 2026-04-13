@@ -3,10 +3,10 @@ import type { RouteFile } from "../types/RouteFile.js";
 export const validateRouteFiles = (routeFiles: RouteFile[]) => {
   const errors: string[] = [];
 
+  const operationIds = new Set<string>();
+
   for (const routeFile of routeFiles) {
     const { endpoints } = routeFile;
-
-    const operationIds = new Set<string>();
 
     for (const endpoint of endpoints) {
       if (operationIds.has(endpoint.operationId)) {
