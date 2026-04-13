@@ -13,17 +13,18 @@ export const createEndpointFiles = (routes: RouteFile[], config: Config) => {
 
   for (const routeFile of routes) {
     const { relativePath } = routeFile;
-    const endpointFileDirectory = `${config.outputDir}/${config.name}/endpoints/${relativePath.replace(".route.ts", "")}`;
 
-    checkOrCreateDirectory(endpointFileDirectory);
+    const endpointFileDirectory = `${config.outputDir}/${config.name}/endpoints/${relativePath.replace(".route.ts", "").replace("/index", "")}`;
 
     for (const endpoint of routeFile.endpoints) {
       if (endpoint.method === "GET") {
-        const contents = createQueryFile(endpoint, config, relativePath.split("/").length + 1);
+        const contents = createQueryFile(endpoint, config, relativePath.replace("/index", "").split("/").length + 1);
 
         if (!contents) {
           continue;
         }
+
+        checkOrCreateDirectory(endpointFileDirectory);
 
         const outputFilePath = `${endpointFileDirectory}/${endpoint.operationId}.ts`;
         fs.writeFileSync(outputFilePath, contents);

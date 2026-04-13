@@ -11,7 +11,7 @@ import { parseResponseObject } from "./util/parseResponseObject.js";
 
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
-export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefix: string, availableSchemaImports: string[]): Endpoint[] => {
+export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefix: string, availableSchemaImports: string[], warnings: string[]): Endpoint[] => {
   const fastifyParamName = "fastify";
   const availableImportsSet = new Set(availableSchemaImports);
 
@@ -43,13 +43,13 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     const args = call.getArguments();
 
     if (args.length < 2) {
-      console.warn(`Could not parse route definition at ${relativePath}:${call.getStartLineNumber()} — skipping`);
+      warnings.push(`Could not parse route definition at ${relativePath}:${call.getStartLineNumber()} — skipping`);
       continue;
     }
 
     const pathArg = args[0];
     if (!pathArg?.isKind(SyntaxKind.StringLiteral)) {
-      console.warn(`Could not parse route definition at ${relativePath}:${call.getStartLineNumber()} — path must be a string literal, skipping`);
+      warnings.push(`Could not parse route definition at ${relativePath}:${call.getStartLineNumber()} — path must be a string literal, skipping`);
       continue;
     }
 
@@ -66,7 +66,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     }
 
     if (!optionsArg?.isKind(SyntaxKind.ObjectLiteralExpression)) {
-      console.warn(`Could not parse route definition at ${relativePath}:${line} — skipping`);
+      warnings.push(`Could not parse route definition at ${relativePath}:${line} — skipping`);
       continue;
     }
 
@@ -81,7 +81,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     const schemaInit = schemaPropNode.getInitializer();
 
     if (!schemaInit || !schemaInit.isKind(SyntaxKind.ObjectLiteralExpression)) {
-      console.warn(`Could not parse schema at ${relativePath}:${line} — skipping`);
+      warnings.push(`Could not parse schema at ${relativePath}:${line} — skipping`);
       continue;
     }
 
@@ -90,7 +90,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     const operationId = getPropertyValue(schemaObj, 'operationId');
 
     if (!operationId) {
-      console.warn(`Missing operationId in schema at ${relativePath}:${line} — skipping`);
+      warnings.push(`Missing operationId in schema at ${relativePath}:${line} — skipping`);
       continue;
     }
 

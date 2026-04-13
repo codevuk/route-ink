@@ -7,7 +7,7 @@ import { findRouteFiles } from "./findRouteFiles.js";
 import { getEndpoints } from "./getEndpoints.js";
 import { getSchemaImports } from "./getSchemaImports.js";
 
-export const parseRouteFiles = (config: Config): RouteFile[] => {
+export const parseRouteFiles = (config: Config, warnings: string[]): RouteFile[] => {
   const sourceRouteFiles = findRouteFiles(config.routesDir);
 
   const project = new Project({
@@ -32,7 +32,7 @@ export const parseRouteFiles = (config: Config): RouteFile[] => {
       route: prefix,
       sourceFile,
       schemaImports,
-      endpoints: getEndpoints(sourceFile, relativePath, prefix, schemaImports),
+      endpoints: getEndpoints(sourceFile, relativePath, prefix, schemaImports, warnings),
     });
   }
 
