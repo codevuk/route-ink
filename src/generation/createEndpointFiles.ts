@@ -19,7 +19,7 @@ export const createEndpointFiles = (routes: RouteFile[], config: Config) => {
 
     for (const endpoint of routeFile.endpoints) {
       if (endpoint.method === "GET") {
-        const contents = createQueryFile(endpoint, config);
+        const contents = createQueryFile(endpoint, config, relativePath.split("/").length + 1);
         const outputFilePath = `${endpointFileDirectory}/${endpoint.operationId}.ts`;
         fs.writeFileSync(outputFilePath, contents);
       }

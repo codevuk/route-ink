@@ -1,8 +1,9 @@
 import type { Config } from "../schemas/config.schema.js";
 import type { Endpoint } from "../types/Endpoint.js";
 import { capitalize } from "../util/capitalize.js";
+import { findSuccessOutput } from "./util/findSuccessOutput.js";
 
-export const createQueryFile = (endpoint: Endpoint, config: Config): string => {
+export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel: number): string => {
   const { schemaPackage } = config;
   const { query, params, schemaImports, response } = endpoint;
 
@@ -29,12 +30,15 @@ export const createQueryFile = (endpoint: Endpoint, config: Config): string => {
     utilImports.push("serializeSearchQuery");
   }
 
-  const queryName = `${capitalize(endpoint.operationId)}Query`;
+  const queryName = `${capitalize(endpoint.operationId)}`;
+  const relativeUtilPath = "../".repeat(nestingLevel) + "util";
 
-  content.push(`import { ${utilImports.join(", ")} } from "../util";`);
+  content.push(`import { ${utilImports.join(", ")} } from "${relativeUtilPath}";`);
   content.push("");
 
-  content.push(`type ${queryName}Input = {`);
+  // Zone: Input type
+  // ------------------------
+  content.push(`type ${queryName}SuspenseQueryInput = {`);
 
   if (params) {
     content.push(`  params: z.output<typeof ${params}>;`);
@@ -47,6 +51,73 @@ export const createQueryFile = (endpoint: Endpoint, config: Config): string => {
   content.push(`};`);
 
   content.push("");
+
+  const responseSchema = findSuccessOutput(response);
+
+  if (!responseSchema) {
+    throw new Error(`No successful response schema found for endpoint ${endpoint.method} ${endpoint.path}`);
+  }
+
+  // Zone: Prop parsing
+  // ------------------------
+  content.push(`export const use${queryName}SuspenseQuery = (input: ${queryName}SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof ${responseSchema}>>, "queryFn">) => {`);
+
+  const inputKeys: string[] = [];
+
+  if (params) {
+    inputKeys.push("params");
+  }
+
+  if (query) {
+    inputKeys.push("query");
+  }
+
+  if (inputKeys.length > 0) {
+    content.push(`  const { ${inputKeys.join(", ")} } = input;`);
+  }
+
+  // Zone: Query key construction
+  // ------------------------
+
+  if (params) {
+    content.push(`  const url = injectParams("${endpoint.path}", ${params}.parse(params), params);\n`);
+  } else {
+    content.push(`  const url = "${endpoint.path}";\n`);
+  }
+
+  if (query) {
+    content.push(`  const searchQuery = serializeSearchQuery(query);\n`);
+    content.push(`  const queryKey = options?.queryKey || buildQueryKey(url, query);\n`);
+  } else {
+    content.push(`  const queryKey = options?.queryKey || buildQueryKey(url);\n`);
+  }
+
+  // Zone: Query function
+  // ------------------------
+  content.push(`  return useSuspenseQuery({`);
+  content.push(`    queryKey,`);
+  content.push(`    queryFn: async (context) => {`);
+  if (query) {
+    content.push("      const response = await axios.get(`url?${searchQuery}`, {");
+  } else {
+    content.push(`      const response = await axios.get(url, {);`);
+  }
+  content.push(`        signal: context.signal,`)
+  content.push(`      });\n`);
+
+
+  content.push(`      const output = ${responseSchema}.safeParse(response.data);\n`)
+  content.push(`      if (!output.success) {`);
+  content.push(`        console.error("Response validation failed:", output.error);`);
+  content.push(`      }\n`);
+  content.push(`      return (output.data || response.data) as z.output<typeof ${responseSchema}>;`);
+  content.push("    },")
+  content.push(`    ...options,`);
+  content.push(`  });\n`);
+
+  // Zone: End
+  content.push("}");
+
 
   return content.join("\n");
 }
