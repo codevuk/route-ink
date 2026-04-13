@@ -8,12 +8,13 @@ import { Except } from "type-fest";
 import z from "zod/v4";
 import { @schema_imports@ } from "@schema_package@";
 import { buildQueryKey, injectParams } from "@nesting@util";
+
 @params_schema_const@
+@response_schema_const@
+
 type @identifier@SuspenseQueryInput = {
   params: z.output<typeof @params_schema_ref@>;
 };
-
-@response_schema_const@
 
 export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof @response_schema_ref@>>, "queryFn">) => {
   const { params } = input;
@@ -33,4 +34,4 @@ export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInp
     },
     ...options,
   });
-}
+};
