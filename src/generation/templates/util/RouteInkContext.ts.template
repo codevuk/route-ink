@@ -1,0 +1,18 @@
+import React from "react";
+import type { AxiosInstance } from "axios";
+import axios from "axios";
+
+const RouteInkContext = React.createContext<AxiosInstance>(axios);
+
+type RouteInkProviderProps = {
+  children: React.ReactNode;
+  axios: AxiosInstance;
+};
+
+export const RouteInkProvider = ({ children, axios: axiosInstance }: RouteInkProviderProps) => {
+  return React.createElement(RouteInkContext.Provider, { value: axiosInstance }, children);
+};
+
+export const useAxiosInstance = (): AxiosInstance => {
+  return React.useContext(RouteInkContext);
+};
