@@ -2,52 +2,61 @@ import { generateOutput } from "../generation/generateOutput.js";
 import { parseRouteFiles } from "../parsing/parseRouteFile.js";
 import { validateRouteFiles } from "../validation/validateRouteFiles.js";
 import { loadConfig } from "./load-config.js";
+import { ANSI, color } from "./ui/ansi.js";
+import { formatBadge } from "./ui/formatBadge.js";
+import { printSummary } from "./ui/printSummary.js";
+import { printTable } from "./ui/printTable.js";
 
 export const generate = async () => {
-  console.log("Generating API client...");
+  console.log(`\n${color("Route Ink", ANSI.bold)} ${color("generator", ANSI.dim)}`);
+  console.log(`${formatBadge("START", "info")} Generating API client...`);
+
   // Lets first load the config
   try {
     const result = await loadConfig();
 
     if (!result.success) {
-      console.error("Failed to load config:", result.error);
+      console.error(`${formatBadge("FAILED", "error")} Could not load config`);
+      console.error(` ${color(result.error, ANSI.red)}`);
       return process.exit(1);
     }
+
+    console.log(`${formatBadge("OK", "success")} Loaded config`);
 
     const { config } = result;
 
     const warnings: string[] = [];
 
     const routes = parseRouteFiles(config, warnings);
+    console.log(`${formatBadge("OK", "success")} Parsed route files`);
 
     const errors = validateRouteFiles(routes);
 
-    if (errors.length > 0) {
-      console.error("\nValidation errors found in route files:");
-      console.error("-----------------------------------------");
-      errors.forEach((error) => console.error(`- ${error}`));
-      console.error("\n");
-    }
-
     if (warnings.length > 0) {
-      console.warn("\nWarnings found while parsing route files:");
-      console.warn("---------------------------------------");
-      warnings.forEach((warning) => console.warn(`- ${warning}`));
-      console.warn("\n");
+      printTable(color("Warnings", ANSI.yellow), warnings.map((warning) => color(warning, ANSI.yellow)));
     }
 
     if (errors.length > 0) {
-      console.error("Aborting generation due to validation errors.\n");
+      printTable(color("Validation Errors", ANSI.red), errors.map((error) => color(error, ANSI.red)));
+    }
+
+    if (errors.length > 0) {
+      printSummary(routes.length, warnings.length, errors.length);
+      console.error(`\n${formatBadge("FAILED", "error")} Aborting generation due to validation errors.`);
       return process.exit(1);
     }
 
     generateOutput(routes, config);
+    printSummary(routes.length, warnings.length, errors.length);
+    console.log(`\n${formatBadge("SUCCESS", "success")} API client generated.`);
 
     // logger(routes);
 
   }
   catch (error) {
-    console.error("Error loading config:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`\n${formatBadge("FAILED", "error")} Unexpected error while generating API client`);
+    console.error(` ${color(message, ANSI.red)}`);
     process.exit(1);
   }
 }
