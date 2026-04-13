@@ -1,7 +1,7 @@
 /**
  * Integration tests for parseRouteFiles.
  *
- * These tests run against the real fixture route files in src/__tests__/fixtures/routes/
+ * These tests run against the real fixture route files in src/tests/fixtures/routes/
  * and verify the full parsing pipeline: file discovery → AST analysis → Endpoint objects.
  *
  * Fixture structure:
