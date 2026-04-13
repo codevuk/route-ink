@@ -1,0 +1,4 @@
+import { ApiErrorType } from "@workspace/schemas";
+import { AxiosError } from "axios";
+
+export type QueryError = AxiosError<ApiErrorType>;
