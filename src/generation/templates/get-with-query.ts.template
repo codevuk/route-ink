@@ -8,14 +8,14 @@ import { Except } from "type-fest";
 import z from "zod/v4";
 import { @schema_imports@ } from "@schema_package@";
 import { buildQueryKey, serializeSearchQuery } from "@nesting@util";
-
+@query_schema_const@
 type @identifier@SuspenseQueryInput = {
-  query: z.output<typeof @query_schema@>;
+  query: z.output<typeof @query_schema_ref@>;
 };
 
-const ResponseSchema = @response_schema@;
+@response_schema_const@
 
-export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof ResponseSchema>>, "queryFn">) => {
+export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof @response_schema_ref@>>, "queryFn">) => {
   const { query } = input;
   const url = "@path@";
 
@@ -30,13 +30,13 @@ export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInp
         signal: context.signal,
       });
 
-      const output = ResponseSchema.safeParse(response.data);
+      const output = @response_schema_ref@.safeParse(response.data);
 
       if (!output.success) {
         console.error("Response validation failed:", output.error);
       }
 
-      return (output.data || response.data) as z.output<typeof ResponseSchema>;
+      return (output.data || response.data) as z.output<typeof @response_schema_ref@>;
     },
     ...options,
   });

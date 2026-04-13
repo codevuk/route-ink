@@ -2,6 +2,7 @@ import type { Config } from "../schemas/config.schema.js";
 import type { Endpoint } from "../types/Endpoint.js";
 import { compileTemplate } from "./compileTemplate.js";
 import { loadTemplateFile } from "./loadTemplateFile.js";
+import { isComplexSchema } from "./util/isComplexSchema.js";
 
 export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel: number): string => {
   const { schemaPackage } = config;
@@ -26,6 +27,12 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
 
   const nesting = "../".repeat(nestingLevel);
 
+  const responseSchema = response[200] || response[201] || response[204] || "z.any()";
+  const isResponseComplex = isComplexSchema(responseSchema);
+
+  const isQueryComplex = isComplexSchema(query);
+  const isParamsComplex = isComplexSchema(params);
+
   return compileTemplate(template, {
     method: endpoint.method,
     path: endpoint.path,
@@ -35,6 +42,24 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
     nesting,
     query_schema: query,
     params_schema: params,
-    response_schema: response[200] || response[201] || response[204] || "z.any()",
+    response_schema: responseSchema,
+    response_schema_const: isResponseComplex
+      ? `const ResponseSchema = ${responseSchema};`
+      : "",
+    response_schema_ref: isResponseComplex
+      ? "ResponseSchema"
+      : responseSchema,
+    query_schema_const: isQueryComplex
+      ? `const QuerySchema = ${query};`
+      : "",
+    query_schema_ref: isQueryComplex
+      ? "QuerySchema"
+      : query,
+    params_schema_const: isParamsComplex
+      ? `const ParamsSchema = ${params};`
+      : "",
+    params_schema_ref: isParamsComplex
+      ? "ParamsSchema"
+      : params,
   });
 }

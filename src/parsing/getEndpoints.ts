@@ -1,6 +1,5 @@
 import { ObjectLiteralExpression, SyntaxKind, type SourceFile } from "ts-morph";
 import type { Endpoint } from "../types/Endpoint.js";
-import { stripQuotes } from "../util/stripQuotes.js";
 import { extractSchemaIdentifiers } from "./util/extractSchemaIdentifiers.js";
 import { getPropertyAssignment } from "./util/getPropertyAssignment.js";
 import { getPropertyObjectValue } from "./util/getPropertyObjectValue.js";
@@ -87,6 +86,13 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
 
     const schemaObj = schemaInit as ObjectLiteralExpression;
 
+    const operationId = getPropertyValue(schemaObj, 'operationId');
+
+    if (!operationId) {
+      console.warn(`Missing operationId in schema at ${relativePath}:${line} — skipping`);
+      continue;
+    }
+
     // Extract schema identifiers for this endpoint
     const endpointSchemaImports = new Set<string>();
 
@@ -121,7 +127,7 @@ export const getEndpoints = (sourceFile: SourceFile, relativePath: string, prefi
     endpoints.push({
       method: methodName.toUpperCase() as Endpoint["method"],
       path: fullPath,
-      operationId: stripQuotes(getPropertyValue(schemaObj, 'operationId') || ""),
+      operationId,
       body: getPropertyValue(schemaObj, 'body'),
       query: getPropertyValue(schemaObj, 'querystring'),
       params: getPropertyValue(schemaObj, 'params'),

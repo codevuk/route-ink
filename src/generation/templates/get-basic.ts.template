@@ -9,9 +9,9 @@ import z from "zod/v4";
 import { @schema_imports@ } from "@schema_package@";
 import { buildQueryKey } from "@nesting@util";
 
-const ResponseSchema = @response_schema@;
+@response_schema_const@
 
-export const use@identifier@SuspenseQuery = (options?: Except<UseSuspenseQueryOptions<z.infer<typeof ResponseSchema>>, "queryFn">) => {
+export const use@identifier@SuspenseQuery = (options?: Except<UseSuspenseQueryOptions<z.infer<typeof @response_schema_ref@>>, "queryFn">) => {
   const url = "@path@";
   const queryKey = options?.queryKey || buildQueryKey(url);
 
@@ -22,13 +22,13 @@ export const use@identifier@SuspenseQuery = (options?: Except<UseSuspenseQueryOp
         signal: context.signal,
       });
 
-      const output = ResponseSchema.safeParse(response.data);
+      const output = @response_schema_ref@.safeParse(response.data);
 
       if (!output.success) {
         console.error("Response validation failed:", output.error);
       }
 
-      return (output.data || response.data) as z.output<typeof ResponseSchema>;
+      return (output.data || response.data) as z.output<typeof @response_schema_ref@>;
     },
     ...options,
   });
