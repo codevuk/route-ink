@@ -1,5 +1,7 @@
+import fs from "fs";
 import type { Config } from "../schemas/config.schema.js";
 import type { RouteFile } from "../types/RouteFile.js";
+import { createQueryFile } from "./createQueryFile.js";
 import { checkOrCreateDirectory } from "./util/checkOrCreateDirectory.js";
 
 export const createEndpointFiles = (routes: RouteFile[], config: Config) => {
@@ -10,6 +12,17 @@ export const createEndpointFiles = (routes: RouteFile[], config: Config) => {
   checkOrCreateDirectory(endpointsPath);
 
   for (const routeFile of routes) {
+    const { relativePath } = routeFile;
+    const endpointFileDirectory = `${config.outputDir}/${config.name}/endpoints/${relativePath.replace(".route.ts", "")}`;
 
+    checkOrCreateDirectory(endpointFileDirectory);
+
+    for (const endpoint of routeFile.endpoints) {
+      if (endpoint.method === "GET") {
+        const contents = createQueryFile(endpoint, config);
+        const outputFilePath = `${endpointFileDirectory}/${endpoint.operationId}.ts`;
+        fs.writeFileSync(outputFilePath, contents);
+      }
+    }
   }
 }  
