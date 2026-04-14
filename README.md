@@ -75,8 +75,13 @@ Output root:
 
 ```text
 <outputDir>/<name>/
+	index.ts
+	queries.ts
+	mutations.ts
 	endpoints/
+		index.ts
 		...generated endpoint hooks
+		...nested route folders with index.ts barrels
 	util/
 		buildQueryKey.ts
 		injectParams.ts
@@ -167,7 +172,12 @@ If needed, re-link again with `pnpm link --global`.
 1. Define/update Fastify route schemas in API package.
 2. Ensure shared schema symbols come from your configured `schemaPackage`.
 3. Run `route-ink generate` from the consumer package (or workspace) that has `routeink.json`.
-4. Import generated hooks from `<outputDir>/<name>/endpoints`.
+4. Import generated hooks from `<outputDir>/<name>`, `<outputDir>/<name>/queries`, or `<outputDir>/<name>/mutations`.
+
+Recommended import surface:
+
+- Use the top-level barrels for app code.
+- Treat individual generated endpoint files as implementation details that may move when routes change.
 
 ## Troubleshooting
 

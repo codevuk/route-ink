@@ -1,6 +1,6 @@
 import { serializeSearchQuery } from "./serializeSearchQuery";
 
-export const buildQueryKey = (endpoint: string, searchQuery?: Record<string, string | number | null | boolean | undefined>): string[] => {
+export const buildQueryKey = (endpoint: string, searchQuery?: Record<string, string | number | null | boolean | undefined | number[]>): string[] => {
   const baseKey = endpoint.split("/").filter(Boolean);
 
   return searchQuery

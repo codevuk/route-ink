@@ -47,6 +47,19 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
 
   const axiosRequestParamsOnly = `axios.${endpoint.method.toLowerCase()}(urlWithParams)`;
   const axiosRequestBasic = `axios.${endpoint.method.toLowerCase()}(url)`;
+  const axiosRequest = effectiveBody && params
+    ? axiosRequestWithBody
+    : params
+      ? axiosRequestParamsOnly
+      : effectiveBody
+        ? axiosRequestBodyOnly
+        : axiosRequestBasic;
+  const mutation_request_statement = responseSchemaRef
+    ? `const response = await ${axiosRequest};`
+    : `await ${axiosRequest};`;
+  const mutation_return_statement = responseSchemaRef
+    ? `return ${responseSchemaRef}.parse(response.data);`
+    : "return undefined;";
 
   return compileTemplate(template, {
     method: endpoint.method,
@@ -80,9 +93,8 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
     mutation_response_type: responseSchemaRef
       ? `z.output<typeof ${responseSchemaRef}>`
       : "undefined",
-    mutation_response_value: responseSchemaRef
-      ? `${responseSchemaRef}.parse(response.data)`
-      : "undefined",
+    mutation_request_statement,
+    mutation_return_statement,
     axios_request_with_body: axiosRequestWithBody,
     axios_request_body_only: axiosRequestBodyOnly,
     axios_request_params_only: axiosRequestParamsOnly,
