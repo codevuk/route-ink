@@ -179,6 +179,118 @@ Recommended import surface:
 - Use the top-level barrels for app code.
 - Treat individual generated endpoint files as implementation details that may move when routes change.
 
+## Frontend Usage
+
+In a frontend app, wrap the part of your React tree that uses generated hooks with the generated `RouteInkProvider`.
+
+Route Ink expects you to provide your own Axios instance. That is where you should set `baseURL`, headers, interceptors, and auth behavior for your application.
+
+Example with auth:
+
+```ts
+import axios from "axios";
+
+export const api = axios.create({
+	baseURL: import.meta.env.VITE_API_URL,
+});
+
+api.interceptors.request.use((config) => {
+	const token = localStorage.getItem("token");
+
+	if (token) {
+		config.headers.Authorization = `Bearer ${token}`;
+	}
+
+	return config;
+});
+```
+
+Provider setup:
+
+```tsx
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouteInkProvider } from "./generated/api-client/util";
+import { api } from "./lib/api";
+
+const queryClient = new QueryClient();
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+	return (
+		<QueryClientProvider client={queryClient}>
+			<RouteInkProvider axios={api}>{children}</RouteInkProvider>
+		</QueryClientProvider>
+	);
+}
+```
+
+### Query Example
+
+Generated query hooks use React Query suspense APIs. A `GET` endpoint with `operationId: "getUsers"` becomes `useGetUsersSuspenseQuery`.
+
+```tsx
+import { useGetUsersSuspenseQuery } from "./generated/api-client/queries";
+
+export function UsersList() {
+	const { data } = useGetUsersSuspenseQuery();
+
+	return (
+		<ul>
+			{data.map((user) => (
+				<li key={user.id}>{user.name}</li>
+			))}
+		</ul>
+	);
+}
+```
+
+If the route has params or querystring input, pass them as the first argument:
+
+```tsx
+useGetUserByIdSuspenseQuery({
+	params: { userId: "42" },
+});
+
+useSearchUsersSuspenseQuery({
+	query: { page: 1, search: "sam" },
+});
+```
+
+### Mutation Example
+
+A mutation endpoint with `operationId: "createUser"` becomes `useCreateUserMutation`.
+
+```tsx
+import { useCreateUserMutation } from "./generated/api-client/mutations";
+
+export function CreateUserButton() {
+	const createUser = useCreateUserMutation();
+
+	return (
+		<button
+			onClick={() => {
+				createUser.mutate({
+					body: {
+						name: "Sam",
+						email: "sam@example.com",
+					},
+				});
+			}}
+		>
+			Create user
+		</button>
+	);
+}
+```
+
+If the mutation route also has params, include both `params` and `body`:
+
+```tsx
+updateUser.mutate({
+	params: { userId: "42" },
+	body: { name: "Updated name" },
+});
+```
+
 ## Troubleshooting
 
 - `Configuration file not found`: ensure `routeink.json` exists in current directory.
