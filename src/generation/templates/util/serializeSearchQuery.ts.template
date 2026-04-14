@@ -1,11 +1,18 @@
-export const serializeSearchQuery = (query: Record<string, string | number | boolean | null | undefined>): string => {
+export const serializeSearchQuery = (query: Record<string, string | number | boolean | null | undefined | number[]>): string => {
   const search = new URLSearchParams();
 
-  Object.entries(query).forEach(([key, value]) => {
-    if (value !== undefined) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value === undefined) {
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        search.append(key, value.join(","));
+        continue;
+      }
+
       search.append(key, String(value));
     }
-  });
 
   return search.toString();
 };
