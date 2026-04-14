@@ -217,7 +217,7 @@ export const useDeleteUserMutation = (options: Except<Options, "onSettled" | "mu
   return useMutation({
     mutationFn: async ({ params }: DeleteUserMutationInput) => {
       const urlWithParams = injectParams(url, UserParamsSchema, params);
-      const response = await axios.delete(urlWithParams);
+      await axios.delete(urlWithParams);
 
       return undefined;
     },

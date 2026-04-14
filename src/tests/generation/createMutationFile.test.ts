@@ -275,6 +275,9 @@ describe("createMutationFile", () => {
     expect(result).toContain("undefined");
     // Should NOT attempt to parse a non-existent schema
     expect(result).not.toContain(".parse(response.data)");
+    expect(result).toContain("await axios.post(url)");
+    expect(result).not.toContain("const response = await");
+    expect(result).toContain("return undefined;");
   });
 
   it("complex response schema is wrapped in a const", () => {

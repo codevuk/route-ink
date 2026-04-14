@@ -35,9 +35,9 @@ export const use@identifier@Mutation = (options: Except<Options, "onSettled" | "
   return useMutation({
     mutationFn: async ({ params, body }: @identifier@MutationInput) => {
       const urlWithParams = injectParams(url, @params_schema_ref@, params);
-      const response = await @axios_request_with_body@;
+      @mutation_request_statement@
 
-      return @mutation_response_value@;
+      @mutation_return_statement@
     },
     onSettled: (response, _error, variables) => {
       const invalidationKeys = typeof queryKeyInvalidation === "function"

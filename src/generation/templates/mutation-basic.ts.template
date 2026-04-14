@@ -27,9 +27,9 @@ export const use@identifier@Mutation = (options: Except<Options, "onSettled" | "
 
   return useMutation({
     mutationFn: async () => {
-      const response = await @axios_request_basic@;
+      @mutation_request_statement@
 
-      return @mutation_response_value@;
+      @mutation_return_statement@
     },
     onSettled: (response) => {
       const invalidationKeys = typeof queryKeyInvalidation === "function"
