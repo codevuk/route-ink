@@ -71,7 +71,7 @@ const modelFilePath = (modelName: string, modelDir: string, config: PrismaConfig
 
 const renderEnumFile = (e: PrismaEnum, config: PrismaConfig): string => {
   const schemaName = expandNamingPattern(config.enumSchemaNaming, e.name, "enum");
-  const typeName = `${e.name}Type`;
+  const typeName = expandNamingPattern(config.enumTypeNaming, e.name, "enum");
   const valueLines = e.values.map((v) => `  "${v}",`).join("\n");
 
   return `import { z } from "zod/v4";
@@ -92,7 +92,7 @@ const renderModelFile = (
   config: PrismaConfig,
 ): string => {
   const schemaName = expandNamingPattern(config.modelSchemaNaming, model.name, "model");
-  const typeName = `${model.name}Type`;
+  const typeName = expandNamingPattern(config.modelTypeNaming, model.name, "model");
   const scalarFieldsName = `${model.name}ScalarFieldsSchema`;
 
   // Same-dir refs use the specific enum file (no barrel in play).

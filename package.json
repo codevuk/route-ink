@@ -1,21 +1,48 @@
 {
   "name": "route-ink",
   "version": "1.0.0",
-  "description": "",
+  "description": "Convention-driven code generators: Fastify routes -> typed React Query hooks, and Prisma -> Zod schemas.",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "route-ink": "./dist/index.js",
     "route-ink-prisma-generator": "./dist/prisma-generator.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm build"
   },
-  "keywords": [],
+  "keywords": [
+    "prisma",
+    "prisma-generator",
+    "zod",
+    "fastify",
+    "react-query",
+    "tanstack-query",
+    "codegen",
+    "monorepo"
+  ],
   "author": "Vuk Stanojevic",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codevuk/route-ink.git"
+  },
+  "bugs": {
+    "url": "https://github.com/codevuk/route-ink/issues"
+  },
+  "homepage": "https://github.com/codevuk/route-ink#readme",
+  "engines": {
+    "node": ">=24"
+  },
   "packageManager": "pnpm@10.6.1",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
