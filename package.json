@@ -1,5 +1,5 @@
 {
-  "name": "route-ink",
+  "name": "@codevuk/route-ink",
   "version": "1.0.0",
   "description": "Convention-driven code generators: Fastify routes -> typed React Query hooks, and Prisma -> Zod schemas.",
   "type": "module",
@@ -40,6 +40,9 @@
     "url": "https://github.com/codevuk/route-ink/issues"
   },
   "homepage": "https://github.com/codevuk/route-ink#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "engines": {
     "node": ">=24"
   },

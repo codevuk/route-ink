@@ -9,8 +9,25 @@ Both are opinionated and tuned to a particular set of conventions. Use either, b
 
 ## Installation
 
+Route Ink is published as a private package on GitHub Packages. Consuming it requires a one-time auth setup.
+
+**1. Add `.npmrc` to your consumer repo root** (commit this file):
+
+```
+@codevuk:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+```
+
+**2. Provide a GitHub PAT with `read:packages` scope** via the `NODE_AUTH_TOKEN` env var.
+
+- Local development: export it from your shell profile.
+- GitHub Actions CI: the built-in `secrets.GITHUB_TOKEN` works (the workflow needs `permissions: packages: read`).
+- Other CI: store a PAT as a secret and inject it as `NODE_AUTH_TOKEN`.
+
+**3. Install:**
+
 ```bash
-pnpm add -D route-ink
+pnpm add -D @codevuk/route-ink
 ```
 
 This installs two binaries into `node_modules/.bin/`:
@@ -288,12 +305,29 @@ import { RoleSchema } from "@workspace/schemas/zod/enums";              // enums
 
 ### CI/CD
 
-`route-ink` must be installed before `prisma generate` runs. In a typical pipeline:
+`@codevuk/route-ink` must be installed (and authenticated against GitHub Packages) before `prisma generate` runs. Typical GitHub Actions workflow:
 
 ```yaml
-- pnpm install                                  # pulls route-ink from npm
-- pnpm --filter db exec prisma generate
+permissions:
+  packages: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+      - run: pnpm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm --filter db exec prisma generate
 ```
+
+The default `GITHUB_TOKEN` carries `read:packages` permission when `permissions.packages: read` is set in the workflow.
 
 With Turborepo, declare the install dependency so `prisma generate` runs after all installs:
 
