@@ -14,7 +14,7 @@ import { buildQueryKey, injectParams, serializeSearchQuery, useAxiosInstance } f
 
 type @identifier@SuspenseQueryInput = {
   params: z.output<typeof @params_schema_ref@>;
-  query: z.output<typeof @query_schema_ref@>;
+  query: z.input<typeof @query_schema_ref@>;
 };
 
 export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof @response_schema_ref@>>, "queryFn">) => {

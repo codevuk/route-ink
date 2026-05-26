@@ -1,4 +1,4 @@
-export const serializeSearchQuery = (query: Record<string, string | number | boolean | null | undefined | number[]>): string => {
+export const serializeSearchQuery = (query: Record<string, unknown>): string => {
   const search = new URLSearchParams();
 
     for (const [key, value] of Object.entries(query)) {

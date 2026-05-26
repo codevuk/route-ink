@@ -12,7 +12,7 @@ import { buildQueryKey, serializeSearchQuery, useAxiosInstance } from "@nesting@
 @response_schema_const@
 
 type @identifier@SuspenseQueryInput = {
-  query: z.output<typeof @query_schema_ref@>;
+  query: z.input<typeof @query_schema_ref@>;
 };
 
 export const use@identifier@SuspenseQuery = (input: @identifier@SuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof @response_schema_ref@>>, "queryFn">) => {
