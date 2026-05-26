@@ -29,7 +29,7 @@ describe("getSchemaImports", () => {
     const sourceFile = makeSourceFile(`
       import { UserSchema } from "@workspace/schemas";
       import { FastifyPluginAsync } from "fastify";
-      import { z } from "zod";
+      import { z } from "zod/v4";
     `);
     const imports = getSchemaImports(sourceFile, baseConfig);
     expect(imports).toContain("UserSchema");

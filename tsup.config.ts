@@ -19,7 +19,7 @@ function copyDir(src: string, dest: string) {
 }
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/prisma-generator.ts'],
   format: ['esm'],
   dts: true,
   clean: true,

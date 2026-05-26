@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "route-ink": "./dist/index.js"
+    "route-ink": "./dist/index.js",
+    "route-ink-prisma-generator": "./dist/prisma-generator.js"
   },
   "scripts": {
     "build": "tsup",
@@ -28,6 +29,7 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
+    "@prisma/generator-helper": "^6.0.0",
     "commander": "^14.0.3",
     "ts-morph": "^27.0.2",
     "zod": "^4.3.6"
