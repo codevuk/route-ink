@@ -234,7 +234,7 @@ export const createZodFiles = (
     barrelDirs.add(enumDir);
   }
 
-  const wantTopLevel = config.topLevelBarrel
+  const wantTopLevel = config.topLevelBarrel === "true"
     && !sameDir(modelDir, enumDir)
     && models.length > 0
     && enums.length > 0;

@@ -13,7 +13,7 @@ export const PrismaConfigSchema = z.object({
   bigIntStrategy: z.enum(["string", "bigint"]).default("string"),
   bytesStrategy: z.enum(["string", "uint8array"]).default("string"),
   importStyle: z.enum(["esm", "cjs"]).default("esm"),
-  topLevelBarrel: z.boolean().default(true),
+  topLevelBarrel: z.enum(["true", "false"]).default("true")
 });
 
 export type PrismaConfig = z.infer<typeof PrismaConfigSchema>;
