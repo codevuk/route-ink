@@ -121,7 +121,7 @@ import { buildQueryKey, serializeSearchQuery, useAxiosInstance } from "../util";
 
 
 type GetUsersSuspenseQueryInput = {
-  query: z.output<typeof UserQuerySchema>;
+  query: z.input<typeof UserQuerySchema>;
 };
 
 export const useGetUsersSuspenseQuery = (input: GetUsersSuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof UserSchema>>, "queryFn">) => {
@@ -164,7 +164,7 @@ import { buildQueryKey, injectParams, serializeSearchQuery, useAxiosInstance } f
 
 type GetUserPostsSuspenseQueryInput = {
   params: z.output<typeof UserParamsSchema>;
-  query: z.output<typeof PostQuerySchema>;
+  query: z.input<typeof PostQuerySchema>;
 };
 
 export const useGetUserPostsSuspenseQuery = (input: GetUserPostsSuspenseQueryInput, options?: Except<UseSuspenseQueryOptions<z.infer<typeof UserSchema>>, "queryFn">) => {

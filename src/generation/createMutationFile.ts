@@ -1,5 +1,6 @@
 import type { Config } from "../schemas/config.schema.js";
 import type { Endpoint } from "../types/Endpoint.js";
+import { cleanupImports } from "./util/cleanupImports.js";
 import { compileTemplate } from "./compileTemplate.js";
 import { loadTemplateFile } from "./loadTemplateFile.js";
 import { isComplexSchema } from "./util/isComplexSchema.js";
@@ -61,7 +62,7 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
     ? `return ${responseSchemaRef}.parse(response.data);`
     : "return undefined;";
 
-  return compileTemplate(template, {
+  return cleanupImports(compileTemplate(template, {
     method: endpoint.method,
     method_lower: endpoint.method.toLowerCase(),
     path: endpoint.path,
@@ -99,5 +100,5 @@ export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLe
     axios_request_body_only: axiosRequestBodyOnly,
     axios_request_params_only: axiosRequestParamsOnly,
     axios_request_basic: axiosRequestBasic,
-  });
+  }));
 };

@@ -48,6 +48,37 @@ describe("createMutationFile", () => {
       expect(result).toContain("QueryError");
       expect(result).not.toContain("injectParams");
     });
+
+    it("drops the unused zod import when there is no response schema", () => {
+      const result = createMutationFile(
+        makeEndpoint({ response: {}, schemaImports: [] }),
+        baseConfig,
+        1,
+      );
+      // z is never referenced (no response/body/params schema), so the import
+      // must not be emitted — otherwise consumers hit an unused-import error.
+      expect(result).not.toContain('import z from "zod/v4";');
+      expect(result).not.toMatch(/\bz\./);
+    });
+
+    it("keeps the zod import when a response schema is present", () => {
+      const result = createMutationFile(
+        makeEndpoint({ response: { 201: "UserSchema" } }),
+        baseConfig,
+        1,
+      );
+      expect(result).toContain('import z from "zod/v4";');
+    });
+
+    it("drops the empty schema-package import when there are no schema imports", () => {
+      const result = createMutationFile(
+        makeEndpoint({ response: {}, schemaImports: [] }),
+        baseConfig,
+        1,
+      );
+      expect(result).not.toContain("@workspace/schemas");
+      expect(result).not.toMatch(/import \{\s*\} from/);
+    });
   });
 
   describe("mutation-with-body (body only)", () => {

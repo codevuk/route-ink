@@ -69,7 +69,7 @@ describe("createQueryFile", () => {
         baseConfig,
         1,
       );
-      expect(result).toContain("query: z.output<typeof UserQuerySchema>");
+      expect(result).toContain("query: z.input<typeof UserQuerySchema>");
     });
   });
 
@@ -149,7 +149,7 @@ describe("createQueryFile", () => {
         1,
       );
       expect(result).toContain("params: z.output<typeof UserParamsSchema>");
-      expect(result).toContain("query: z.output<typeof PostQuerySchema>");
+      expect(result).toContain("query: z.input<typeof PostQuerySchema>");
     });
   });
 

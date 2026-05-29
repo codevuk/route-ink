@@ -1,5 +1,6 @@
 import type { Config } from "../schemas/config.schema.js";
 import type { Endpoint } from "../types/Endpoint.js";
+import { cleanupImports } from "./util/cleanupImports.js";
 import { compileTemplate } from "./compileTemplate.js";
 import { loadTemplateFile } from "./loadTemplateFile.js";
 import { isComplexSchema } from "./util/isComplexSchema.js";
@@ -33,7 +34,7 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
   const isQueryComplex = isComplexSchema(query);
   const isParamsComplex = isComplexSchema(params);
 
-  return compileTemplate(template, {
+  return cleanupImports(compileTemplate(template, {
     method: endpoint.method,
     path: endpoint.path,
     identifier: endpoint.operationId,
@@ -61,5 +62,5 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
     params_schema_ref: isParamsComplex
       ? "ParamsSchema"
       : params,
-  });
+  }));
 }
