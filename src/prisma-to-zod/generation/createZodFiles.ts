@@ -130,6 +130,7 @@ export const ${schemaName} = ${objectBody};
 ${scalarFieldsBlock}
 
 export type ${typeName} = z.output<typeof ${schemaName}>;
+export type ${typeName}ScalarFields = z.output<typeof ${scalarFieldsName}>;
 `;
 };
 
