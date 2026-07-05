@@ -1,9 +1,10 @@
 # Route Ink
 
-Route Ink is a convention-driven code generator for monorepos that follow a specific style. It ships two independent tools in one package:
+Route Ink is a convention-driven code generator for monorepos that follow a specific style. It ships three independent tools in one package:
 
 1. **CLI** — generates fully typed React Query hooks from your Fastify route files.
 2. **Prisma generator** — generates Zod schemas and TypeScript types from your `schema.prisma`.
+3. **Cube.js sync generator** — keeps mechanical Cube YAML metadata aligned with Prisma's DMMF.
 
 Both are opinionated and tuned to a particular set of conventions. Use either, both, or neither. This is a personal-style tool — no support guarantees, PRs may be ignored.
 
@@ -30,10 +31,11 @@ Route Ink is published as a private package on GitHub Packages. Consuming it req
 pnpm add -D @codevuk/route-ink
 ```
 
-This installs two binaries into `node_modules/.bin/`:
+This installs three binaries into `node_modules/.bin/`:
 
 - `route-ink` — the CLI
 - `route-ink-prisma-generator` — the Prisma generator (referenced from `schema.prisma`)
+- `route-ink-cube-sync-generator` — the Cube.js sync Prisma generator (referenced from `schema.prisma`)
 
 ---
 
@@ -344,6 +346,99 @@ No special handling is required for multi-file Prisma schemas (`prismaSchemaFold
 
 ---
 
+## Cube.js sync generator: schema.prisma → Cube YAML parity
+
+Checks hand-authored Cube.js YAML files against Prisma's resolved DMMF and patches only mechanical metadata that can be derived safely. It never creates cubes, dimensions, measures, or joins, because those require human-written descriptions, AI context, and visibility decisions.
+
+### Setup
+
+```prisma
+// schema.prisma
+generator cubeSchema {
+  provider = "route-ink-cube-sync-generator"
+  output   = "./generated"
+
+  cubeModelDir   = "../../apps/cube-core/model/cubes"
+  exceptionsFile = "./cube-schema-parity-exceptions.yml"
+}
+```
+
+Then run `prisma generate`. The `output` field is required by Prisma but is not written to. `cubeModelDir` and `exceptionsFile` are resolved relative to `schema.prisma` unless they are absolute paths.
+
+### What it updates
+
+**Enum metadata**: for enum-typed Prisma fields, the generator finds the existing Cube dimension for that column and sets `meta.enum` to the exact enum values in Prisma declaration order.
+
+**Relationship metadata**: for each hand-authored Cube `joins:` entry, the generator mirrors `{ cube, type }` into `meta.relationships`. Existing hand-written `note:` fields on relationship metadata entries are preserved. Notes are never generated automatically.
+
+The generator uses `yaml`'s round-trip `Document` API, so untouched Cube YAML, comments, key order, and formatting are preserved. Only `meta.enum` and `meta.relationships` are mutated.
+
+### Coverage report
+
+The generator also reports drift that needs human review:
+
+- Missing cube for a Prisma model
+- Orphaned cube whose `sql_table` no longer maps to a Prisma model
+- Missing Cube dimension/measure reference for a Prisma scalar or enum column
+- Orphaned dimension/measure `sql:` references to dropped or renamed columns
+- Missing Cube `joins:` entry for a Prisma relation
+
+Coverage findings are report-only. `fix` mode prints them but does not fail the generator. `check` mode fails when any enum, relationship, or coverage finding remains after exceptions are applied.
+
+### Modes
+
+Use `ROUTE_INK_CUBE_SYNC_MODE`:
+
+| Value | Default | Description |
+|---|---|---|
+| `fix` | yes | Patch enum and relationship metadata, print coverage findings, and exit successfully. |
+| `check` | no | Write nothing, print all findings, and exit non-zero if anything is out of sync. |
+
+Example CI command:
+
+```bash
+ROUTE_INK_CUBE_SYNC_MODE=check pnpm --filter db exec prisma generate
+```
+
+### Config reference
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `output` | string | (required by Prisma) | Required generator output placeholder. Not written to. |
+| `cubeModelDir` | string | (required) | Directory containing Cube `*.yml` / `*.yaml` files. Relative to `schema.prisma`, or absolute. |
+| `exceptionsFile` | string | optional | YAML file listing intentional coverage exclusions. Relative to `schema.prisma`, or absolute. Missing files are treated as empty exceptions. |
+
+### Exceptions file
+
+Use exceptions only for things that genuinely should not be modeled in Cube. A Cube field with `public: false` is already modeled and reviewed, so it does not need an exception.
+
+Every exception requires a `reason`:
+
+```yaml
+tables:
+  - table: prisma_migrations
+    reason: "Prisma's internal migrations table."
+columns:
+  - table: customer
+    column: private_notes
+    reason: "Operational-only free text, intentionally not exposed in Cube."
+joins:
+  - from: audit_log
+    to: customer
+    reason: "No analytical join path; logs are queried independently."
+```
+
+`joins` exceptions are matched in either direction.
+
+### Troubleshooting
+
+- `Invalid ROUTE_INK_CUBE_SYNC_MODE`: use `check` or `fix`.
+- Missing enum metadata after `fix`: ensure the enum column already has a Cube dimension; the generator will not create dimensions.
+- Missing relationship metadata after `fix`: ensure the Cube already has a `joins:` entry; the generator reads joins but does not create them.
+- Unexpected coverage finding for a hidden field: keep the dimension/measure in Cube and set `public: false` or a Cube visibility expression. Exceptions are only for intentionally unmodeled tables, columns, or joins.
+
+---
+
 ## Development
 
 ```bash
@@ -371,5 +466,5 @@ pnpm unlink --global route-ink
 route-ink generate      # generate Fastify → TanStack hooks
 route-ink --help
 
-prisma generate         # runs the Prisma generator when configured in schema.prisma
+prisma generate         # runs configured Prisma generators
 ```
