@@ -1,6 +1,6 @@
 {
   "name": "@codevuk/route-ink",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Convention-driven code generators: Fastify routes -> typed React Query hooks, Prisma -> Zod schemas, and Prisma/Cube.js schema sync.",
   "type": "module",
   "main": "dist/index.js",
