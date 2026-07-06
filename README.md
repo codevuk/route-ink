@@ -446,7 +446,7 @@ sql String?
 | `@cube.ai_context <text>` | Add `meta.ai_context` to the generated dimension, or generated cube when used on a model. |
 | `@cube.public true` | Mark the generated dimension public. |
 | `@cube.public false` | Hide the generated dimension. |
-| `@cube.visibility pii_export` | Emit the WOOP-style PII export visibility expression. |
+| `@cube.visibility pii_export` | Emit the PII export visibility expression. |
 
 ### Running
 
