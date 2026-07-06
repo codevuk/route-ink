@@ -6,7 +6,7 @@ const { generatorHandler } = generatorHelper;
 generatorHandler({
   onManifest: () => ({
     defaultOutput: "./generated/cube-sync",
-    prettyName: "Route Ink Cube.js Schema Sync Generator",
+    prettyName: "Route Ink Cube.js Base Schema Generator",
   }),
   onGenerate: async (options) => {
     await generateCubeSync(options);

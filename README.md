@@ -4,7 +4,7 @@ Route Ink is a convention-driven code generator for monorepos that follow a spec
 
 1. **CLI** — generates fully typed React Query hooks from your Fastify route files.
 2. **Prisma generator** — generates Zod schemas and TypeScript types from your `schema.prisma`.
-3. **Cube.js sync generator** — keeps mechanical Cube YAML metadata aligned with Prisma's DMMF.
+3. **Cube.js base generator** — generates hidden Cube.js base schemas from Prisma's DMMF and Prisma `///` comments.
 
 Both are opinionated and tuned to a particular set of conventions. Use either, both, or neither. This is a personal-style tool — no support guarantees, PRs may be ignored.
 
@@ -35,7 +35,7 @@ This installs three binaries into `node_modules/.bin/`:
 
 - `route-ink` — the CLI
 - `route-ink-prisma-generator` — the Prisma generator (referenced from `schema.prisma`)
-- `route-ink-cube-sync-generator` — the Cube.js sync Prisma generator (referenced from `schema.prisma`)
+- `route-ink-cube-sync-generator` — the Cube.js base-schema Prisma generator (referenced from `schema.prisma`)
 
 ---
 
@@ -346,11 +346,11 @@ No special handling is required for multi-file Prisma schemas (`prismaSchemaFold
 
 ---
 
-## Cube.js sync generator: schema.prisma → Cube YAML parity
+## Cube.js base generator: schema.prisma → generated Cube YAML
 
-Checks hand-authored Cube.js YAML files against Prisma's resolved DMMF and patches only mechanical metadata that can be derived safely. It never creates cubes, dimensions, measures, or joins inside the hand-authored directory, because those require human-written descriptions, AI context, and visibility decisions.
+Generates hidden Prisma-backed Cube.js base cubes from Prisma's resolved DMMF. Use that generated layer with manual public cubes that `extends` the base cube, so custom measures such as `revenue_ex_gst`, `avg_order_value`, or cohort metrics stay human-owned.
 
-It can also optionally generate hidden Prisma-backed base cubes into a separate owned directory. Use that generated layer with manual public cubes that `extends` the base cube, so custom measures such as `revenue_ex_gst`, `avg_order_value`, or cohort metrics stay human-owned.
+The generator does not read or patch hand-authored Cube YAML files. Manual cubes are only for query-facing choices Prisma cannot know: custom measures, custom dimensions, public exposure, and Cube-specific modelling.
 
 ### Setup
 
@@ -360,27 +360,16 @@ generator cubeSchema {
   provider = "route-ink-cube-sync-generator"
   output   = "./generated"
 
-  cubeModelDir   = "../../apps/cube-core/model/cubes"
-  exceptionsFile = "./cube-schema-parity-exceptions.yml"
-
-  // Optional generated layer. This directory is fully owned by route-ink.
+  // This directory is fully owned by route-ink.
   generatedCubeModelDir = "../../apps/cube-core/model/generated/cubes"
 }
 ```
 
-Then run `prisma generate`. The `output` field is required by Prisma but is not written to. `cubeModelDir` and `exceptionsFile` are resolved relative to `schema.prisma` unless they are absolute paths.
+Then run `prisma generate`. The `output` field is required by Prisma but is not written to. `generatedCubeModelDir` is resolved relative to `schema.prisma` unless it is an absolute path.
 
-### What it updates
+### Generated base cubes
 
-**Enum metadata**: for enum-typed Prisma fields, the generator finds the existing Cube dimension for that column and sets `meta.enum` to the exact enum values in Prisma declaration order.
-
-**Relationship metadata**: for each hand-authored Cube `joins:` entry, the generator mirrors `{ cube, type }` into `meta.relationships`. Existing hand-written `note:` fields on relationship metadata entries are preserved. Notes are never generated automatically.
-
-The generator uses `yaml`'s round-trip `Document` API, so untouched Cube YAML, comments, key order, and formatting are preserved. Only `meta.enum` and `meta.relationships` are mutated.
-
-### Optional generated base cubes
-
-When `generatedCubeModelDir` is configured, route-ink writes one hidden base cube per Prisma model:
+Route Ink writes one hidden base cube per Prisma model:
 
 ```text
 apps/cube-core/model/generated/cubes/
@@ -459,18 +448,6 @@ sql String?
 | `@cube.public false` | Hide the generated dimension. |
 | `@cube.visibility pii_export` | Emit the WOOP-style PII export visibility expression. |
 
-### Coverage report
-
-The generator also reports drift that needs human review:
-
-- Missing cube for a Prisma model
-- Orphaned cube whose `sql_table` no longer maps to a Prisma model
-- Missing Cube dimension/measure reference for a Prisma scalar or enum column
-- Orphaned dimension/measure `sql:` references to dropped or renamed columns
-- Missing Cube `joins:` entry for a Prisma relation
-
-Coverage findings are report-only. The generator prints them after applying the owned sync updates, but does not fail the generator. Add the missing Cube content manually, or document intentional gaps in the exceptions file.
-
 ### Running
 
 Run Prisma generate:
@@ -479,24 +456,22 @@ Run Prisma generate:
 pnpm --filter db exec prisma generate
 ```
 
-The Cube sync generator always rewrites out-of-date generated base cubes, patches enum metadata and relationship metadata on manual cubes, and then prints any remaining coverage findings.
+The Cube generator rewrites out-of-date generated base cubes. It does not modify manual public cubes.
 
 ### Config reference
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `output` | string | (required by Prisma) | Required generator output placeholder. Not written to. |
-| `cubeModelDir` | string | (required) | Directory containing Cube `*.yml` / `*.yaml` files. Relative to `schema.prisma`, or absolute. |
-| `exceptionsFile` | string | optional | YAML file listing intentional coverage exclusions. Relative to `schema.prisma`, or absolute. Missing files are treated as empty exceptions. |
-| `generatedCubeModelDir` | string | optional | Owned directory where hidden generated base cubes are written. Relative to `schema.prisma`, or absolute. |
+| `generatedCubeModelDir` | string | (required) | Owned directory where hidden generated base cubes are written. Relative to `schema.prisma`, or absolute. |
 | `generatedCubeNameSuffix` | string | `_base` | Suffix for generated base cube names and file names. |
 | `generatedCubeSqlSchema` | string | `public` | SQL schema prefix used in generated `sql_table` values. |
 
 ### Troubleshooting
 
-- Missing enum metadata after generate: ensure the enum column already has a Cube dimension; the generator will not create dimensions.
-- Missing relationship metadata after generate: ensure the Cube already has a `joins:` entry; the generator reads joins but does not create them.
-- Unexpected coverage finding for a hidden field: keep the dimension/measure in Cube and set `public: false` or a Cube visibility expression. Exceptions are only for intentionally unmodeled tables, columns, or joins.
+- Missing enum metadata after generate: ensure the field is an enum in Prisma and the generated base cube is imported by Cube.
+- Missing relationship metadata after generate: ensure the relation is represented unambiguously in Prisma. Multiple relations to the same target table are skipped and should be modelled manually with alias cubes.
+- Stale generated files after table renames or drops: remove obsolete generated files manually; Route Ink rewrites current model files but does not delete old files yet.
 
 ---
 
