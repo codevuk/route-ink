@@ -72,7 +72,7 @@ export type CubeFile = {
 };
 
 export type Violation = {
-  rule: "enum" | "relationships" | "coverage" | "generated-base";
+  rule: "enum" | "relationships" | "coverage";
   message: string;
 };
 

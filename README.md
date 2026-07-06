@@ -422,7 +422,7 @@ cubes:
 
 Because the base cube is hidden, the manual cube should set `public: true` explicitly. Generated dimensions set member-level `public: true` so they remain visible when inherited by a public manual cube. Annotate sensitive Prisma fields before moving a manual cube to `extends`.
 
-Generated files are checked for exact content in `check` mode and rewritten in `fix` mode. Route Ink does not delete stale generated files yet; remove obsolete generated files manually after table renames or drops.
+Generated files are compared against the Prisma schema and rewritten when out of date. Route Ink does not delete stale generated files yet; remove obsolete generated files manually after table renames or drops.
 
 ### Prisma `///` annotations for generated base cubes
 
@@ -469,22 +469,17 @@ The generator also reports drift that needs human review:
 - Orphaned dimension/measure `sql:` references to dropped or renamed columns
 - Missing Cube `joins:` entry for a Prisma relation
 
-Coverage findings are report-only. `fix` mode prints them but does not fail the generator. `check` mode fails when any enum, relationship, or coverage finding remains after exceptions are applied.
+Coverage findings are report-only. The generator prints them after applying the owned sync updates, but does not fail the generator. Add the missing Cube content manually, or document intentional gaps in the exceptions file.
 
-### Modes
+### Running
 
-Use `ROUTE_INK_CUBE_SYNC_MODE`:
-
-| Value | Default | Description |
-|---|---|---|
-| `fix` | yes | Patch enum and relationship metadata, print coverage findings, and exit successfully. |
-| `check` | no | Write nothing, print all findings, and exit non-zero if anything is out of sync. |
-
-Example CI command:
+Run Prisma generate:
 
 ```bash
-ROUTE_INK_CUBE_SYNC_MODE=check pnpm --filter db exec prisma generate
+pnpm --filter db exec prisma generate
 ```
+
+The Cube sync generator always rewrites out-of-date generated base cubes, patches enum metadata and relationship metadata on manual cubes, and then prints any remaining coverage findings.
 
 ### Config reference
 
@@ -499,9 +494,8 @@ ROUTE_INK_CUBE_SYNC_MODE=check pnpm --filter db exec prisma generate
 
 ### Troubleshooting
 
-- `Invalid ROUTE_INK_CUBE_SYNC_MODE`: use `check` or `fix`.
-- Missing enum metadata after `fix`: ensure the enum column already has a Cube dimension; the generator will not create dimensions.
-- Missing relationship metadata after `fix`: ensure the Cube already has a `joins:` entry; the generator reads joins but does not create them.
+- Missing enum metadata after generate: ensure the enum column already has a Cube dimension; the generator will not create dimensions.
+- Missing relationship metadata after generate: ensure the Cube already has a `joins:` entry; the generator reads joins but does not create them.
 - Unexpected coverage finding for a hidden field: keep the dimension/measure in Cube and set `public: false` or a Cube visibility expression. Exceptions are only for intentionally unmodeled tables, columns, or joins.
 
 ---

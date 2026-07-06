@@ -2,8 +2,7 @@ import type { DMMF } from "@prisma/generator-helper";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import YAML from "yaml";
-import type { CubeSyncConfig, CubeSyncMode } from "../config.schema.js";
-import type { Violation } from "../types.js";
+import type { CubeSyncConfig } from "../config.schema.js";
 import { normalizeTableName } from "../parsing/normalize.js";
 
 type GeneratedDimension = {
@@ -52,7 +51,6 @@ type GeneratedCube = {
 
 type BaseCubeGenerationResult = {
   changedFileCount: number;
-  violations: Violation[];
 };
 
 type CubeAnnotation = {
@@ -343,18 +341,16 @@ const stringifyGeneratedCube = (cube: GeneratedCube): string => {
 export const generateBaseCubes = (
   dmmf: DMMF.Document,
   generatedCubeModelDir: string | undefined,
-  mode: CubeSyncMode,
   config: CubeSyncConfig,
 ): BaseCubeGenerationResult => {
   if (!generatedCubeModelDir) {
-    return { changedFileCount: 0, violations: [] };
+    return { changedFileCount: 0 };
   }
 
   const joinsByModel = buildRelationJoins(dmmf);
-  const violations: Violation[] = [];
   let changedFileCount = 0;
 
-  if (mode === "fix" && !existsSync(generatedCubeModelDir)) {
+  if (!existsSync(generatedCubeModelDir)) {
     mkdirSync(generatedCubeModelDir, { recursive: true });
   }
 
@@ -369,17 +365,9 @@ export const generateBaseCubes = (
       continue;
     }
 
-    if (mode === "fix") {
-      writeFileSync(filePath, expectedSource);
-      changedFileCount += 1;
-    }
-    else {
-      violations.push({
-        rule: "generated-base",
-        message: `${table}${config.generatedCubeNameSuffix}.yml is missing or out of date`,
-      });
-    }
+    writeFileSync(filePath, expectedSource);
+    changedFileCount += 1;
   }
 
-  return { changedFileCount, violations };
+  return { changedFileCount };
 };

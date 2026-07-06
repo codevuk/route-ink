@@ -1,10 +1,8 @@
-import type { CubeSyncMode } from "../config.schema.js";
 import type { CubeFile, Violation } from "../types.js";
 import { refreshCubeFile } from "../yaml/cube-files.js";
 
 export const applyRelationshipMetadataRule = (
   cubeFiles: CubeFile[],
-  mode: CubeSyncMode,
 ): Violation[] => {
   const violations: Violation[] = [];
 
@@ -32,10 +30,6 @@ export const applyRelationshipMetadataRule = (
           message: `${cube.name}.joins.${join.name} — expected meta.relationships entry { cube: ${join.name}, type: ${join.relationship} }`,
         });
 
-        if (mode !== "fix") {
-          continue;
-        }
-
         if (existing) {
           cubeFile.doc.setIn([...existing.path, "cube"], join.name);
           cubeFile.doc.setIn([...existing.path, "type"], join.relationship);
@@ -53,7 +47,7 @@ export const applyRelationshipMetadataRule = (
         }
       }
 
-      if (mode === "fix" && pendingAdds.length > 0) {
+      if (pendingAdds.length > 0) {
         if (cube.relationships.length === 0) {
           cubeFile.doc.setIn([...cube.path, "meta", "relationships"], pendingAdds);
         }

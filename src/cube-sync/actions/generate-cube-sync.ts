@@ -1,7 +1,7 @@
 import type { GeneratorOptions } from "@prisma/generator-helper";
 import { existsSync, statSync } from "fs";
 import { dirname, isAbsolute, resolve } from "path";
-import { CubeSyncConfigSchema, CubeSyncModeSchema } from "../config.schema.js";
+import { CubeSyncConfigSchema } from "../config.schema.js";
 import { generateBaseCubes } from "../generation/base-cubes.js";
 import { parsePrismaColumns, parsePrismaModelTables, parsePrismaRelations } from "../parsing/dmmf.js";
 import { printCubeSyncReport } from "../reporting/printCubeSyncReport.js";
@@ -25,16 +25,6 @@ const resolveFromSchema = (schemaPath: string | undefined, value: string): strin
   return resolve(schemaDir, value);
 };
 
-const getMode = () => {
-  const result = CubeSyncModeSchema.safeParse(process.env.ROUTE_INK_CUBE_SYNC_MODE ?? "fix");
-
-  if (!result.success) {
-    throw new Error("Invalid ROUTE_INK_CUBE_SYNC_MODE. Expected `check` or `fix`.");
-  }
-
-  return result.data;
-};
-
 export const generateCubeSync = async (options: GeneratorOptions): Promise<void> => {
   if (!options.generator.output?.value) {
     throw new Error("Prisma generator block is missing `output`");
@@ -49,7 +39,6 @@ export const generateCubeSync = async (options: GeneratorOptions): Promise<void>
     throw new Error(`Invalid cube-sync generator config: ${issues}`);
   }
 
-  const mode = getMode();
   const config = configResult.data;
   const cubeModelDir = resolveFromSchema(options.schemaPath, config.cubeModelDir);
   const generatedCubeModelDir = config.generatedCubeModelDir
@@ -64,22 +53,17 @@ export const generateCubeSync = async (options: GeneratorOptions): Promise<void>
   const models = parsePrismaModelTables(options.dmmf);
   const columns = parsePrismaColumns(options.dmmf);
   const relations = parsePrismaRelations(options.dmmf);
-  const generatedBaseResult = generateBaseCubes(options.dmmf, generatedCubeModelDir, mode, config);
+  const generatedBaseResult = generateBaseCubes(options.dmmf, generatedCubeModelDir, config);
   const generatedCubeFiles = generatedCubeModelDir && existsSync(generatedCubeModelDir)
     ? readCubeFiles(generatedCubeModelDir)
     : [];
 
   const violations: Violation[] = [
-    ...generatedBaseResult.violations,
-    ...applyEnumMetadataRule(columns, cubeFiles, mode),
-    ...applyRelationshipMetadataRule(cubeFiles, mode),
+    ...applyEnumMetadataRule(columns, cubeFiles),
+    ...applyRelationshipMetadataRule(cubeFiles),
     ...applyCoverageRule(models, columns, relations, cubeFiles, exceptions, generatedCubeFiles),
   ];
-  const changedFileCount = mode === "fix" ? writeChangedCubeFiles(cubeFiles) : 0;
+  const changedFileCount = writeChangedCubeFiles(cubeFiles);
 
-  printCubeSyncReport(mode, violations, changedFileCount, generatedBaseResult.changedFileCount);
-
-  if (mode === "check" && violations.length > 0) {
-    throw new Error(`Cube schema sync check failed with ${violations.length} finding(s).`);
-  }
+  printCubeSyncReport(violations, changedFileCount, generatedBaseResult.changedFileCount);
 };

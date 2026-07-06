@@ -1,4 +1,3 @@
-import type { CubeSyncMode } from "../config.schema.js";
 import { columnMatchesSql } from "../parsing/normalize.js";
 import type { CubeFile, PrismaColumn, Violation } from "../types.js";
 import { refreshCubeFile } from "../yaml/cube-files.js";
@@ -12,7 +11,6 @@ const arraysEqual = (left: string[] | undefined, right: string[]): boolean => {
 export const applyEnumMetadataRule = (
   columns: PrismaColumn[],
   cubeFiles: CubeFile[],
-  mode: CubeSyncMode,
 ): Violation[] => {
   const violations: Violation[] = [];
   const cubesByTable = new Map(
@@ -47,11 +45,9 @@ export const applyEnumMetadataRule = (
       message: `${cubeEntry.cube.name}.${dimension.name} — expected meta.enum [${column.enumValues.join(", ")}] for ${column.modelName}.${column.fieldName}`,
     });
 
-    if (mode === "fix") {
-      cubeEntry.file.doc.setIn([...dimension.path, "meta", "enum"], column.enumValues);
-      cubeEntry.file.changed = true;
-      refreshCubeFile(cubeEntry.file);
-    }
+    cubeEntry.file.doc.setIn([...dimension.path, "meta", "enum"], column.enumValues);
+    cubeEntry.file.changed = true;
+    refreshCubeFile(cubeEntry.file);
   }
 
   return violations;
