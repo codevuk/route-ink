@@ -51,7 +51,8 @@ export type CubeRelationshipMeta = {
 
 export type CubeDefinition = {
   name: string;
-  sqlTable: string;
+  sqlTable: string | undefined;
+  extendsCube: string | undefined;
   normalizedTable: string;
   filePath: string;
   cubeIndex: number;
@@ -71,7 +72,7 @@ export type CubeFile = {
 };
 
 export type Violation = {
-  rule: "enum" | "relationships" | "coverage";
+  rule: "enum" | "relationships" | "coverage" | "generated-base";
   message: string;
 };
 

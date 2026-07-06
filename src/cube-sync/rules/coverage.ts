@@ -19,12 +19,21 @@ export const applyCoverageRule = (
   relations: PrismaRelation[],
   cubeFiles: CubeFile[],
   exceptions: CubeSyncExceptions,
+  generatedCubeFiles: CubeFile[] = [],
 ): Violation[] => {
   const violations: Violation[] = [];
   const cubes = cubeFiles.flatMap((file) => file.cubes);
+  const relationCubes = [...cubes, ...generatedCubeFiles.flatMap((file) => file.cubes)];
   const cubesByTable = new Map(cubes.map((cube) => [cube.normalizedTable, cube]));
+  const relationCubesByTable = new Map<string, CubeDefinition[]>();
   const modelsByTable = new Map(models.map((model) => [model.table, model]));
   const columnsByTable = new Map<string, PrismaColumn[]>();
+
+  for (const cube of relationCubes) {
+    const tableCubes = relationCubesByTable.get(cube.normalizedTable) ?? [];
+    tableCubes.push(cube);
+    relationCubesByTable.set(cube.normalizedTable, tableCubes);
+  }
 
   for (const column of columns) {
     const tableColumns = columnsByTable.get(column.table) ?? [];
@@ -42,6 +51,10 @@ export const applyCoverageRule = (
   }
 
   for (const cube of cubes) {
+    if (!cube.sqlTable) {
+      continue;
+    }
+
     if (!modelsByTable.has(cube.normalizedTable) && !isTableExcepted(exceptions, cube.normalizedTable)) {
       violations.push({
         rule: "coverage",
@@ -54,6 +67,10 @@ export const applyCoverageRule = (
     const cube = cubesByTable.get(table);
 
     if (!cube) {
+      continue;
+    }
+
+    if (!cube.sqlTable && cube.extendsCube) {
       continue;
     }
 
@@ -101,20 +118,22 @@ export const applyCoverageRule = (
       continue;
     }
 
-    const fromCube = cubesByTable.get(relation.fromTable);
-    const toCube = cubesByTable.get(relation.toTable);
+    const fromCubes = relationCubesByTable.get(relation.fromTable) ?? [];
+    const toCubes = relationCubesByTable.get(relation.toTable) ?? [];
 
-    if (!fromCube || !toCube) {
+    if (fromCubes.length === 0 || toCubes.length === 0) {
       continue;
     }
 
-    const hasJoin = fromCube.joins.some((join) => join.name === toCube.name)
-      || toCube.joins.some((join) => join.name === fromCube.name);
+    const fromCubeNames = new Set([relation.fromTable, ...fromCubes.map((cube) => cube.name)]);
+    const toCubeNames = new Set([relation.toTable, ...toCubes.map((cube) => cube.name)]);
+    const hasJoin = fromCubes.some((cube) => cube.joins.some((join) => toCubeNames.has(join.name)))
+      || toCubes.some((cube) => cube.joins.some((join) => fromCubeNames.has(join.name)));
 
     if (!hasJoin) {
       violations.push({
         rule: "coverage",
-        message: `${relation.fromModel} -> ${relation.toModel} (${relation.relationName}) — missing joins entry in ${fromCube.name} or ${toCube.name}`,
+        message: `${relation.fromModel} -> ${relation.toModel} (${relation.relationName}) — missing joins entry in ${relation.fromTable} or ${relation.toTable}`,
       });
     }
   }

@@ -158,15 +158,17 @@ const parseCubes = (filePath: string, doc: CubeFile["doc"]): CubeDefinition[] =>
     const cubePath = ["cubes", index];
     const name = asScalarString(getMapValue(item, "name")) ?? `#${index + 1}`;
     const sqlTable = asScalarString(getMapValue(item, "sql_table"));
+    const extendsCube = asScalarString(getMapValue(item, "extends"));
 
-    if (!sqlTable) {
+    if (!sqlTable && !extendsCube) {
       return [];
     }
 
     return [{
       name,
       sqlTable,
-      normalizedTable: normalizeTableName(sqlTable),
+      extendsCube,
+      normalizedTable: sqlTable ? normalizeTableName(sqlTable) : normalizeTableName(name),
       filePath,
       cubeIndex: index,
       path: cubePath,
