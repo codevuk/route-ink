@@ -1,6 +1,11 @@
+import type { QueryKey } from "@tanstack/react-query";
 import { serializeSearchQuery } from "./serializeSearchQuery";
 
-export const buildQueryKey = (endpoint: string, searchQuery?: Record<string, unknown>): string[] => {
+// Typed as QueryKey (readonly unknown[]) rather than string[]: the query
+// options factories capture this type in their queryFn generic, and a mutable
+// string[] there is incompatible with the QueryKey consumers pass via hook
+// options.
+export const buildQueryKey = (endpoint: string, searchQuery?: Record<string, unknown>): QueryKey => {
   const baseKey = endpoint.split("/").filter(Boolean);
 
   return searchQuery
