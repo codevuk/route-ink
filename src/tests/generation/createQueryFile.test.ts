@@ -8,6 +8,7 @@ const baseConfig: Config = {
   outputDir: "./src/generated",
   name: "api-client",
   schemaPackage: "@workspace/schemas",
+  exportQueryOptions: false,
 };
 
 function makeEndpoint(overrides: Partial<Endpoint> = {}): Endpoint {
@@ -278,5 +279,112 @@ describe("createQueryFile", () => {
     const customConfig: Config = { ...baseConfig, schemaPackage: "@my-org/api-types" };
     const result = createQueryFile(makeEndpoint(), customConfig, 1);
     expect(result).toContain('from "@my-org/api-types"');
+  });
+
+  // ─── exportQueryOptions flag ─────────────────────────────────────────────────
+
+  describe("exportQueryOptions", () => {
+    const optionsConfig: Config = { ...baseConfig, exportQueryOptions: true };
+
+    it("does not export a query options factory when the flag is off", () => {
+      const result = createQueryFile(makeEndpoint(), baseConfig, 1);
+      expect(result).not.toContain("queryOptions(");
+      expect(result).not.toContain('import type { AxiosInstance } from "axios";');
+    });
+
+    describe("get-basic (no params, no query)", () => {
+      it("produces the correct output", () => {
+        const result = createQueryFile(makeEndpoint(), optionsConfig, 1);
+        expect(result).toMatchSnapshot();
+      });
+
+      it("exports a camelCased query options factory taking the axios instance", () => {
+        const result = createQueryFile(makeEndpoint(), optionsConfig, 1);
+        expect(result).toContain("export const getUsersQueryOptions = (axios: AxiosInstance)");
+      });
+
+      it("suspense hook reuses the query options factory", () => {
+        const result = createQueryFile(makeEndpoint(), optionsConfig, 1);
+        expect(result).toContain("...getUsersQueryOptions(axios),");
+        // queryFn must only be defined once, inside the factory
+        expect(result.match(/queryFn/g)).toHaveLength(2); // Except<..., "queryFn"> + factory queryFn
+      });
+    });
+
+    describe("get-with-query (query only)", () => {
+      const endpoint = makeEndpoint({ query: "UserQuerySchema", schemaImports: ["UserSchema", "UserQuerySchema"] });
+
+      it("produces the correct output", () => {
+        const result = createQueryFile(endpoint, optionsConfig, 1);
+        expect(result).toMatchSnapshot();
+      });
+
+      it("factory takes input and hook forwards it", () => {
+        const result = createQueryFile(endpoint, optionsConfig, 1);
+        expect(result).toContain("export const getUsersQueryOptions = (axios: AxiosInstance, input: GetUsersQueryInput)");
+        expect(result).toContain("...getUsersQueryOptions(axios, input),");
+      });
+    });
+
+    describe("get-with-params (params only)", () => {
+      const endpoint = makeEndpoint({
+        path: "/users/:id",
+        operationId: "GetUser",
+        params: "UserParamsSchema",
+        schemaImports: ["UserSchema", "UserParamsSchema"],
+      });
+
+      it("produces the correct output", () => {
+        const result = createQueryFile(endpoint, optionsConfig, 1);
+        expect(result).toMatchSnapshot();
+      });
+
+      it("factory takes input and hook forwards it", () => {
+        const result = createQueryFile(endpoint, optionsConfig, 1);
+        expect(result).toContain("export const getUserQueryOptions = (axios: AxiosInstance, input: GetUserQueryInput)");
+        expect(result).toContain("...getUserQueryOptions(axios, input),");
+      });
+    });
+
+    describe("get-with-query-and-params (both)", () => {
+      const endpoint = makeEndpoint({
+        path: "/users/:id/posts",
+        operationId: "GetUserPosts",
+        params: "UserParamsSchema",
+        query: "PostQuerySchema",
+        schemaImports: ["UserSchema", "UserParamsSchema", "PostQuerySchema"],
+      });
+
+      it("produces the correct output", () => {
+        const result = createQueryFile(endpoint, optionsConfig, 1);
+        expect(result).toMatchSnapshot();
+      });
+
+      it("factory takes input and hook forwards it", () => {
+        const result = createQueryFile(endpoint, optionsConfig, 1);
+        expect(result).toContain("export const getUserPostsQueryOptions = (axios: AxiosInstance, input: GetUserPostsQueryInput)");
+        expect(result).toContain("...getUserPostsQueryOptions(axios, input),");
+      });
+    });
+
+    it("imports queryOptions from @tanstack/react-query and AxiosInstance from axios", () => {
+      const result = createQueryFile(makeEndpoint(), optionsConfig, 1);
+      expect(result).toContain('import { queryOptions, useSuspenseQuery, UseSuspenseQueryOptions } from "@tanstack/react-query";');
+      expect(result).toContain('import type { AxiosInstance } from "axios";');
+    });
+
+    it("still wraps complex schemas in consts", () => {
+      const result = createQueryFile(
+        makeEndpoint({
+          response: { 200: "UserSchema.array()" },
+          query: "z.object({search: z.string()}).optional()",
+        }),
+        optionsConfig,
+        1,
+      );
+      expect(result).toContain("const ResponseSchema = UserSchema.array();");
+      expect(result).toContain("const QuerySchema = z.object({search: z.string()}).optional();");
+      expect(result).toContain("ResponseSchema.parse(response.data)");
+    });
   });
 });

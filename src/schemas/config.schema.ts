@@ -5,6 +5,7 @@ export const ConfigSchema = z.object({
   outputDir: z.string().min(1),
   name: z.string().default("api-client"),
   schemaPackage: z.string().default("@workspace/schemas"),
+  exportQueryOptions: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

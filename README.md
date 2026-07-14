@@ -71,7 +71,8 @@ Create `routeink.json` in the project where you run the command:
   "routesDir": "../api/src/routes",
   "outputDir": "./src/generated",
   "name": "api-client",
-  "schemaPackage": "@workspace/schemas"
+  "schemaPackage": "@workspace/schemas",
+  "exportQueryOptions": false
 }
 ```
 
@@ -81,6 +82,7 @@ Create `routeink.json` in the project where you run the command:
 | `outputDir` | (required) | Destination parent directory |
 | `name` | `api-client` | Output folder name inside `outputDir` |
 | `schemaPackage` | `@workspace/schemas` | Package to import schema symbols from |
+| `exportQueryOptions` | `false` | Also export a `queryOptions` factory per query (see below) |
 
 ### Running
 
@@ -150,6 +152,22 @@ const createUser = useCreateUserMutation();
 createUser.mutate({ body: { name: "Sam", email: "sam@example.com" } });
 updateUser.mutate({ params: { userId: "42" }, body: { name: "Updated" } });
 ```
+
+### Query options export
+
+With `"exportQueryOptions": true`, every query file additionally exports a [`queryOptions`](https://tanstack.com/query/latest/docs/framework/react/guides/query-options) factory. It is a plain function (not a hook) taking your Axios instance, so it also works outside React — router loaders, prefetching, `queryClient.ensureQueryData`:
+
+```tsx
+import { getUserQueryOptions } from "./generated/api-client";
+
+// In a route loader
+await queryClient.ensureQueryData(getUserQueryOptions(api, { params: { userId: "42" } }));
+
+// With useQuery / useQueries inside a component
+const { data } = useQuery(getUserQueryOptions(api, { params: { userId: "42" } }));
+```
+
+The factory is named after the `operationId` with the first letter lowercased plus a `QueryOptions` suffix (`GetUser` → `getUserQueryOptions`). The generated suspense hook consumes the same factory internally, so query keys and fetch logic stay in one place.
 
 ### Troubleshooting
 

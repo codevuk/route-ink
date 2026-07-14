@@ -104,6 +104,7 @@ describe("createEndpointFiles", () => {
       outputDir: tempOutputDir,
       name: "api-client",
       schemaPackage: "@workspace/schemas",
+      exportQueryOptions: false,
     };
 
     const routes = [

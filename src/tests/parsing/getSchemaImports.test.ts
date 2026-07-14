@@ -8,6 +8,7 @@ const baseConfig: Config = {
   outputDir: "./src/generated",
   name: "api-client",
   schemaPackage: "@workspace/schemas",
+  exportQueryOptions: false,
 };
 
 function makeSourceFile(content: string) {

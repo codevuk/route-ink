@@ -26,6 +26,7 @@ const config: Config = {
   outputDir: "./generated",
   name: "api-client",
   schemaPackage: "@workspace/schemas",
+  exportQueryOptions: false,
 };
 
 describe("parseRouteFiles (integration)", () => {

@@ -4,24 +4,29 @@ import { cleanupImports } from "./util/cleanupImports.js";
 import { compileTemplate } from "./compileTemplate.js";
 import { loadTemplateFile } from "./loadTemplateFile.js";
 import { isComplexSchema } from "./util/isComplexSchema.js";
+import { uncapitalize } from "../util/uncapitalize.js";
 
 export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel: number): string => {
-  const { schemaPackage } = config;
+  const { schemaPackage, exportQueryOptions } = config;
   const { query, params, schemaImports, response } = endpoint;
+
+  // The "-options" template variants additionally export a queryOptions
+  // factory which the suspense hook consumes internally.
+  const variant = exportQueryOptions ? "-options" : "";
 
   let templateFile: string;
 
   if (params && query) {
-    templateFile = "get-with-query-and-params.ts.template";
+    templateFile = `get-with-query-and-params${variant}.ts.template`;
   }
   else if (query) {
-    templateFile = "get-with-query.ts.template";
+    templateFile = `get-with-query${variant}.ts.template`;
   }
   else if (params) {
-    templateFile = "get-with-params.ts.template";
+    templateFile = `get-with-params${variant}.ts.template`;
   }
   else {
-    templateFile = "get-basic.ts.template";
+    templateFile = `get-basic${variant}.ts.template`;
   }
 
   const template = loadTemplateFile(templateFile);
@@ -38,6 +43,7 @@ export const createQueryFile = (endpoint: Endpoint, config: Config, nestingLevel
     method: endpoint.method,
     path: endpoint.path,
     identifier: endpoint.operationId,
+    options_identifier: uncapitalize(endpoint.operationId),
     schema_imports: [...new Set(schemaImports)].join(", "),
     schema_package: schemaPackage,
     nesting,
