@@ -1,6 +1,6 @@
 {
   "name": "@codevuk/route-ink",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Convention-driven code generators: Fastify routes -> typed React Query hooks, Prisma -> Zod schemas, and Prisma/Cube.js schema sync.",
   "type": "module",
   "main": "dist/index.js",
@@ -8,7 +8,14 @@
   "bin": {
     "route-ink": "./dist/index.js",
     "route-ink-prisma-generator": "./dist/prisma-generator.js",
+    "route-ink-prisma8": "./dist/prisma8.js",
     "route-ink-cube-sync-generator": "./dist/cube-sync-generator.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
     "dist",

@@ -1,5 +1,8 @@
 import z from "zod/v4";
 
+const BooleanFlag = z.union([z.boolean(), z.enum(["true", "false"])])
+  .transform((value) => value === true || value === "true");
+
 export const PrismaConfigSchema = z.object({
   modelOutputDir: z.string().default("."),
   enumOutputDir: z.string().default("."),
@@ -13,7 +16,9 @@ export const PrismaConfigSchema = z.object({
   bigIntStrategy: z.enum(["string", "bigint"]).default("string"),
   bytesStrategy: z.enum(["string", "uint8array"]).default("string"),
   importStyle: z.enum(["esm", "cjs"]).default("esm"),
-  topLevelBarrel: z.enum(["true", "false"]).default("true")
+  topLevelBarrel: BooleanFlag.default(true),
 });
 
 export type PrismaConfig = z.infer<typeof PrismaConfigSchema>;
+
+export type PrismaConfigInput = z.input<typeof PrismaConfigSchema>;

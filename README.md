@@ -1,12 +1,13 @@
 # Route Ink
 
-Route Ink is a convention-driven code generator for monorepos that follow a specific style. It ships three independent tools in one package:
+Route Ink is a convention-driven code generator for monorepos that follow a specific style. It ships four independent tools in one package:
 
 1. **CLI** — generates fully typed React Query hooks from your Fastify route files.
-2. **Prisma generator** — generates Zod schemas and TypeScript types from your `schema.prisma`.
-3. **Cube.js base generator** — generates hidden Cube.js base schemas from Prisma's DMMF and Prisma `///` comments.
+2. **Prisma 7 generator** — generates Zod schemas and TypeScript types from Prisma's DMMF.
+3. **Prisma 8 contract consumer** — generates the same artifacts from emitted `contract.json` files.
+4. **Cube.js base generator** — generates hidden Cube.js base schemas from Prisma's DMMF and Prisma `///` comments.
 
-Both are opinionated and tuned to a particular set of conventions. Use either, both, or neither. This is a personal-style tool — no support guarantees, PRs may be ignored.
+They are opinionated and tuned to a particular set of conventions. Use any combination of them, or none. This is a personal-style tool — no support guarantees, PRs may be ignored.
 
 ## Installation
 
@@ -31,10 +32,11 @@ Route Ink is published as a private package on GitHub Packages. Consuming it req
 pnpm add -D @codevuk/route-ink
 ```
 
-This installs three binaries into `node_modules/.bin/`:
+This installs four binaries into `node_modules/.bin/`:
 
 - `route-ink` — the CLI
-- `route-ink-prisma-generator` — the Prisma generator (referenced from `schema.prisma`)
+- `route-ink-prisma-generator` — the Prisma 7 generator (referenced from `schema.prisma`)
+- `route-ink-prisma8` — the Prisma 8 emitted-contract consumer
 - `route-ink-cube-sync-generator` — the Cube.js base-schema Prisma generator (referenced from `schema.prisma`)
 
 ---
@@ -178,7 +180,7 @@ The factory is named after the `operationId` with the first letter lowercased pl
 
 ---
 
-## Prisma generator: schema.prisma → Zod schemas
+## Prisma 7 generator: schema.prisma → Zod schemas
 
 Generates one Zod schema file per Prisma model and enum, plus barrel re-exports. Designed for monorepos where Prisma lives in one package and the Zod schemas are consumed from another.
 
@@ -258,6 +260,8 @@ All options go in the `generator` block in `schema.prisma`. All are optional unl
 | `nullStrategy` | `"null"` \| `"nullish"` | `"null"` | Whether optional Prisma fields use `.nullable()` or `.nullish()`. |
 | `bigIntStrategy` | `"string"` \| `"bigint"` | `"string"` | How to map `BigInt`. |
 | `bytesStrategy` | `"string"` \| `"uint8array"` | `"string"` | How to map `Bytes`. |
+| `temporalStrategy` | `"temporal-zod"` \| `"string"` \| `"date"` | `"temporal-zod"` | How to map Prisma 8 Temporal-backed codecs. **Prisma 8 only** — the Prisma 7 generator ignores it entirely and always maps `DateTime` to `z.coerce.date()`, including when this is left at its `"temporal-zod"` default. See [Temporal handling](#prisma-8-temporal-codecs). |
+| `temporalImportModule` | string | `"temporal-zod/base"` | Module the Temporal validators are imported from. Only used when `temporalStrategy` is `"temporal-zod"`. |
 | `importStyle` | `"esm"` \| `"cjs"` | `"esm"` | ESM appends `.js` to relative imports; CJS does not. |
 | `topLevelBarrel` | boolean | `true` | When model and enum dirs differ, emit a barrel at their common ancestor. |
 
@@ -361,6 +365,73 @@ With Turborepo, declare the install dependency so `prisma generate` runs after a
 ```
 
 No special handling is required for multi-file Prisma schemas (`prismaSchemaFolder`) — Prisma merges them into one DMMF before the generator sees it.
+
+---
+
+## Prisma 8: emitted contract → Zod schemas
+
+Prisma 8 no longer runs third-party generator blocks. Its supported integration surface is the emitted, machine-readable `contract.json`. Route Ink therefore keeps the Prisma 7 generator unchanged and provides a separate Prisma 8 contract consumer.
+
+First emit the Prisma 8 artifacts:
+
+```bash
+prisma contract emit
+```
+
+Create a Route Ink config file, for example `routeink.prisma8.json`:
+
+```json
+{
+  "contract": "./generated/prisma8/contract.json",
+  "output": "../schemas/src",
+  "modelOutputDir": "models",
+  "enumOutputDir": "enums",
+  "enumTypeNaming": "[Enum]",
+  "modelTypeNaming": "[Model]",
+  "topLevelBarrel": false,
+  "modelFileNamingStyle": "[model-kebab].schema.ts",
+  "modelSchemaNaming": "[Model]Schema"
+}
+```
+
+Both `contract` and `output` are resolved relative to the config file. The remaining options are the same as the Prisma 7 generator options above. Boolean options accept either a JSON boolean or its string form, whether set here, in a `schema.prisma` generator block, or via the programmatic API.
+
+Run the consumer after contract emission:
+
+```bash
+route-ink-prisma8 --config ./routeink.prisma8.json
+```
+
+The Prisma 8 path reads authored models, scalar fields, lists, nullability, and enum value sets from the emitted contract. It excludes Prisma's implicit many-to-many junction models so its output matches the Prisma 7 generator's model surface.
+
+Prisma 8's temporal codecs determine the generated validator:
+
+- string-backed temporal codecs always use `z.string()`;
+- the compatibility `timestamptz-date` codec always uses `z.coerce.date()`;
+- Temporal-backed codecs (`date-temporal`, `time-temporal`, `timestamp-temporal`, `timestamptz-temporal`) follow `temporalStrategy`.
+
+`temporalStrategy` controls whether the generated schemas take on a Temporal dependency:
+
+| Value | Emits | Notes |
+| --- | --- | --- |
+| `"temporal-zod"` (default) | `zInstant`, `zPlainDateTime`, `zPlainDate`, `zPlainTime` | Coercing validators: they accept an existing `Temporal.*` instance or the ISO string it becomes over JSON, so the generated schemas stay usable as HTTP wire contracts. Consumers must install `temporal-zod` (and its `temporal-polyfill` runtime requirement) and initialize the polyfill before using the generated models. Change the import source with `temporalImportModule`. |
+| `"string"` | `z.string()` | No extra dependency. |
+| `"date"` | `z.coerce.date()` | No extra dependency; lossy for `PlainDate`/`PlainTime`. |
+
+Unsupported codecs fail explicitly rather than producing an unsafe schema, as does a codec id that does not match Prisma's `provider/name@version` form.
+
+For programmatic use, import the contract consumer without invoking the CLI:
+
+```ts
+import { generateZodFromPrisma8 } from "@codevuk/route-ink/prisma8";
+import contract from "./generated/prisma8/contract.json" with { type: "json" };
+
+generateZodFromPrisma8({
+  contract,
+  outputDir: "../schemas/src",
+  config: { modelOutputDir: "models", enumOutputDir: "enums" },
+});
+```
 
 ---
 
@@ -521,4 +592,6 @@ route-ink generate      # generate Fastify → TanStack hooks
 route-ink --help
 
 prisma generate         # runs configured Prisma generators
+prisma contract emit    # emits Prisma 8 contract.json + contract.d.ts
+route-ink-prisma8 --config ./routeink.prisma8.json
 ```

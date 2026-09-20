@@ -113,7 +113,15 @@ const renderModelFile = (
       return `import { ${enumSchemaName} } from "${importPath}";`;
     });
 
-  const importBlock = ['import { z } from "zod/v4";', ...enumImportLines].join("\n");
+  const temporalImportLines = model.temporalImport
+    ? [`import { ${model.temporalImport.symbols.join(", ")} } from "${model.temporalImport.module}";`]
+    : [];
+
+  const importBlock = [
+    'import { z } from "zod/v4";',
+    ...temporalImportLines,
+    ...enumImportLines,
+  ].join("\n");
 
   const objectBody = model.fields.length === 0
     ? "z.object({})"
@@ -235,7 +243,7 @@ export const createZodFiles = (
     barrelDirs.add(enumDir);
   }
 
-  const wantTopLevel = config.topLevelBarrel === "true"
+  const wantTopLevel = config.topLevelBarrel
     && !sameDir(modelDir, enumDir)
     && models.length > 0
     && enums.length > 0;
