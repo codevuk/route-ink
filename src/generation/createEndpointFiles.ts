@@ -8,8 +8,8 @@ import { createQueryFile } from "./createQueryFile.js";
 import { checkOrCreateDirectory } from "./util/checkOrCreateDirectory.js";
 import { getRouteNestingLevel, getRouteOutputDirectory } from "./util/getRouteOutputDirectory.js";
 
-export const createEndpointFiles = (routes: RouteFile[], config: Config) => {
-  const { outputDir, name } = config;
+export const createEndpointFiles = (routes: RouteFile[], config: Config, outputDir: string) => {
+  const { name } = config;
   const fullOutputPath = path.join(outputDir, name);
   const endpointsPath = path.join(fullOutputPath, "endpoints");
 

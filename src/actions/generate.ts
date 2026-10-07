@@ -47,7 +47,12 @@ export const generate = async () => {
       return process.exit(1);
     }
 
-    generateOutput(routes, config);
+    const writtenPaths = await generateOutput(routes, config);
+
+    for (const writtenPath of writtenPaths) {
+      console.log(`${formatBadge("OK", "success")} Wrote ${writtenPath}`);
+    }
+
     printSummary(routes.length, endpointsCount, warnings.length, errors.length);
     console.log(`\n${formatBadge("SUCCESS", "success")} API client generated.`);
 

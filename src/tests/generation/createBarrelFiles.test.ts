@@ -113,7 +113,7 @@ describe("createEndpointFiles", () => {
     ];
 
     try {
-      createEndpointFiles(routes, config);
+      createEndpointFiles(routes, config, tempOutputDir);
 
       const outputRoot = path.join(tempOutputDir, "api-client");
       const rootHookPath = path.join(outputRoot, "endpoints", "GetHealth.ts");

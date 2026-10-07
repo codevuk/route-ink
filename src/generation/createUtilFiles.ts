@@ -7,10 +7,10 @@ import { createBarrelFile } from "./util/createBarrelFile.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const createUtilFiles = (config: Config) => {
-  const { outputDir, name } = config;
+export const createUtilFiles = (config: Config, outputDir: string) => {
+  const { name } = config;
 
-  const fullOutputPath = `${outputDir}/${name}`;
+  const fullOutputPath = path.join(outputDir, name);
 
   // Lets first clear out the output directory if it exists
   fs.rmSync(fullOutputPath, { recursive: true, force: true });

@@ -81,10 +81,27 @@ Create `routeink.json` in the project where you run the command:
 | Field | Default | Description |
 |---|---|---|
 | `routesDir` | `../api/src/routes` | Where Route Ink scans for `*.route.ts` |
-| `outputDir` | (required) | Destination parent directory |
+| `outputDir` | (required) | Destination parent directory, or an array of directories |
 | `name` | `api-client` | Output folder name inside `outputDir` |
 | `schemaPackage` | `@workspace/schemas` | Package to import schema symbols from |
 | `exportQueryOptions` | `false` | Also export a `queryOptions` factory per query (see below) |
+
+#### Multiple output directories
+
+If one API serves several frontend apps in a monorepo, pass an array to `outputDir`. Each directory gets the same generated client:
+
+```json
+{
+  "routesDir": "../api/src/routes",
+  "outputDir": [
+    "../apps/web/src/generated",
+    "../apps/admin/src/generated"
+  ],
+  "name": "api-client"
+}
+```
+
+Each `<outputDir>/<name>` folder is cleared and regenerated on every run. Two entries that resolve to the same path are rejected.
 
 ### Running
 
