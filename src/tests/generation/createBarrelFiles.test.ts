@@ -66,7 +66,7 @@ describe("buildBarrelFileContents", () => {
   ];
 
   it("creates stable top-level query and mutation barrels with direct exports", () => {
-    const barrelFiles = buildBarrelFileContents(routes);
+    const barrelFiles = buildBarrelFileContents(routes, { hooks: true, exportQueryOptions: false });
 
     expect(barrelFiles["queries.ts"]).toContain('export { useGetHealthSuspenseQuery } from "./endpoints/GetHealth";');
     expect(barrelFiles["queries.ts"]).toContain('export { useGetUsersSuspenseQuery } from "./endpoints/users/GetUsers";');
@@ -78,7 +78,7 @@ describe("buildBarrelFileContents", () => {
   });
 
   it("creates flat endpoint barrels for nested directories", () => {
-    const barrelFiles = buildBarrelFileContents(routes);
+    const barrelFiles = buildBarrelFileContents(routes, { hooks: true, exportQueryOptions: false });
 
     expect(barrelFiles["endpoints/index.ts"]).toContain('export { useGetHealthSuspenseQuery } from "./GetHealth";');
     expect(barrelFiles["endpoints/index.ts"]).toContain('export { useCreateCustomerOrderMutation } from "./customers/orders/CreateCustomerOrder";');
@@ -88,7 +88,7 @@ describe("buildBarrelFileContents", () => {
   });
 
   it("creates a root index barrel with direct hook exports", () => {
-    const barrelFiles = buildBarrelFileContents(routes);
+    const barrelFiles = buildBarrelFileContents(routes, { hooks: true, exportQueryOptions: false });
 
     expect(barrelFiles["index.ts"]).toContain('export { useGetHealthSuspenseQuery } from "./endpoints/GetHealth";');
     expect(barrelFiles["index.ts"]).toContain('export { useCreateUserMutation } from "./endpoints/users/CreateUser";');
@@ -104,6 +104,7 @@ describe("createEndpointFiles", () => {
       outputDir: tempOutputDir,
       name: "api-client",
       schemaPackage: "@workspace/schemas",
+      hooks: true,
       exportQueryOptions: false,
     };
 
@@ -135,5 +136,41 @@ describe("createEndpointFiles", () => {
     finally {
       fs.rmSync(tempOutputDir, { recursive: true, force: true });
     }
+  });
+});
+describe("buildBarrelFileContents building block exports", () => {
+  const routes = [
+    makeRouteFile("users.route.ts", [
+      { operationId: "GetUsers" },
+      { operationId: "GetUser", path: "/users/:id", params: "UserParamsSchema" },
+      { method: "POST", operationId: "CreateUser", body: "CreateUserBodySchema" },
+    ]),
+  ];
+
+  it("exports fetchers, key builders, invalidation keys and input types", () => {
+    const barrelFiles = buildBarrelFileContents(routes, { hooks: true, exportQueryOptions: false });
+
+    expect(barrelFiles["queries.ts"]).toContain('export { getUsers } from "./endpoints/users/GetUsers";');
+    expect(barrelFiles["queries.ts"]).toContain('export { getUsersQueryKey } from "./endpoints/users/GetUsers";');
+    expect(barrelFiles["queries.ts"]).toContain('export type { GetUserInput } from "./endpoints/users/GetUser";');
+    expect(barrelFiles["queries.ts"]).not.toContain("GetUsersInput");
+    expect(barrelFiles["queries.ts"]).not.toContain("QueryOptions");
+    expect(barrelFiles["mutations.ts"]).toContain('export { createUser } from "./endpoints/users/CreateUser";');
+    expect(barrelFiles["mutations.ts"]).toContain('export { createUserInvalidationKey } from "./endpoints/users/CreateUser";');
+    expect(barrelFiles["mutations.ts"]).toContain('export type { CreateUserInput } from "./endpoints/users/CreateUser";');
+  });
+
+  it("exports query options factories when enabled", () => {
+    const barrelFiles = buildBarrelFileContents(routes, { hooks: true, exportQueryOptions: true });
+
+    expect(barrelFiles["index.ts"]).toContain('export { getUsersQueryOptions } from "./endpoints/users/GetUsers";');
+  });
+
+  it("leaves hooks out when hooks are disabled", () => {
+    const barrelFiles = buildBarrelFileContents(routes, { hooks: false, exportQueryOptions: false });
+
+    expect(barrelFiles["index.ts"]).not.toContain("useGetUsersSuspenseQuery");
+    expect(barrelFiles["index.ts"]).not.toContain("useCreateUserMutation");
+    expect(barrelFiles["index.ts"]).toContain('export { getUsers } from "./endpoints/users/GetUsers";');
   });
 });

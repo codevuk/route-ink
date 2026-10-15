@@ -8,6 +8,7 @@ const baseConfig: Config = {
   outputDir: "./src/generated",
   name: "api-client",
   schemaPackage: "@workspace/schemas",
+  hooks: true,
   exportQueryOptions: false,
 };
 
@@ -187,7 +188,7 @@ describe("createMutationFile", () => {
       expect(result).toContain("body: z.output<typeof UpdateUserBodySchema>");
     });
 
-    it("calls axios with urlWithParams and body", () => {
+    it("calls axios with the injected url and body", () => {
       const result = createMutationFile(
         makeEndpoint({
           body: "UpdateUserBodySchema",
@@ -197,7 +198,7 @@ describe("createMutationFile", () => {
         baseConfig,
         1,
       );
-      expect(result).toContain("axios.post(urlWithParams, body)");
+      expect(result).toContain("axios.post(url, body)");
     });
   });
 
@@ -282,7 +283,7 @@ describe("createMutationFile", () => {
       baseConfig,
       1,
     );
-    expect(result).toContain("axios.delete(urlWithParams)");
+    expect(result).toContain("axios.delete(url)");
   });
 
   // ─── Response schema handling ────────────────────────────────────────────────
@@ -425,5 +426,60 @@ describe("createMutationFile", () => {
     const result = createMutationFile(makeEndpoint(), baseConfig, 1);
     expect(result).toContain("invalidateQueries");
     expect(result).toContain("onSettled");
+  });
+});
+
+describe("createMutationFile plain building blocks", () => {
+  const endpoint = makeEndpoint({
+    method: "PUT",
+    path: "/users/:id/profile",
+    operationId: "UpdateUserProfile",
+    body: "UpdateUserBodySchema",
+    params: "UserParamsSchema",
+    schemaImports: ["UserSchema", "UpdateUserBodySchema", "UserParamsSchema"],
+    response: { 200: "UserSchema" },
+  });
+
+  it("exports the input type, fetcher and invalidation key", () => {
+    const result = createMutationFile(endpoint, baseConfig, 1);
+    expect(result).toContain("export type UpdateUserProfileInput = {");
+    expect(result).toContain("export const updateUserProfile = async (axios: AxiosInstance, input: UpdateUserProfileInput): Promise<z.output<typeof UserSchema>> => {");
+    expect(result).toContain('export const updateUserProfileInvalidationKey = (input: Pick<UpdateUserProfileInput, "params">): QueryKey => injectParams("/users/:id/profile", UserParamsSchema, input.params)');
+  });
+
+  it("builds the mutation hook from the fetcher and invalidation key", () => {
+    const result = createMutationFile(endpoint, baseConfig, 1);
+    expect(result).toContain("mutationFn: (input: UpdateUserProfileInput) => updateUserProfile(axios, input),");
+    expect(result).toContain("client.invalidateQueries({ queryKey: updateUserProfileInvalidationKey(variables) });");
+  });
+
+  it("returns undefined from the fetcher when there is no response schema", () => {
+    const result = createMutationFile(makeEndpoint({ response: {}, schemaImports: [] }), baseConfig, 1);
+    expect(result).toContain("export const createUser = async (axios: AxiosInstance): Promise<undefined> => {");
+    expect(result).toContain("return undefined;");
+    expect(result).toContain("export const createUserInvalidationKey = (): QueryKey =>");
+  });
+
+  describe("with hooks disabled", () => {
+    const serverConfig: Config = { ...baseConfig, hooks: false };
+
+    it("produces the correct output", () => {
+      expect(createMutationFile(endpoint, serverConfig, 1)).toMatchSnapshot();
+    });
+
+    it("emits no React, hook or context imports", () => {
+      const result = createMutationFile(endpoint, serverConfig, 1);
+      expect(result).toContain('import type { QueryKey } from "@tanstack/react-query";');
+      expect(result).not.toContain("useMutation");
+      expect(result).not.toContain("useAxiosInstance");
+      expect(result).not.toContain("QueryError");
+      expect(result).not.toContain("type-fest");
+      expect(result).toContain('import { injectParams } from "../util";');
+    });
+
+    it("drops the util import entirely when nothing from util is needed", () => {
+      const result = createMutationFile(makeEndpoint(), serverConfig, 1);
+      expect(result).not.toContain("../util");
+    });
   });
 });

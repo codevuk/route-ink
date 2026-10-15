@@ -1,14 +1,18 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import type { Config } from "../schemas/config.schema.js";
+import type { GenerationOptions } from "../schemas/config.schema.js";
 import { createBarrelFile } from "./util/createBarrelFile.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const createUtilFiles = (config: Config, outputDir: string) => {
-  const { name } = config;
+// Util templates that depend on React, left out when hooks are disabled so the
+// output is safe to import from server-only code.
+const reactUtilTemplates = new Set(["RouteInkContext.ts.template"]);
+
+export const createUtilFiles = (options: Pick<GenerationOptions, "name" | "hooks">, outputDir: string) => {
+  const { name, hooks } = options;
 
   const fullOutputPath = path.join(outputDir, name);
 
@@ -30,6 +34,10 @@ export const createUtilFiles = (config: Config, outputDir: string) => {
   const templateFiles = fs.readdirSync(templatesDir);
 
   for (const templateFile of templateFiles) {
+    if (!hooks && reactUtilTemplates.has(templateFile)) {
+      continue;
+    }
+
     if (templateFile.endsWith(".template")) {
       const templatePath = path.join(templatesDir, templateFile);
       const content = fs.readFileSync(templatePath, "utf-8");

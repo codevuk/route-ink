@@ -27,6 +27,7 @@ const makeConfig = (outputDir: Config["outputDir"]): Config => ({
   outputDir,
   name: "api-client",
   schemaPackage: "@workspace/schemas",
+  hooks: true,
   exportQueryOptions: false,
 });
 
@@ -68,4 +69,41 @@ describe("generateOutput", () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("applies per-output options to each directory", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "route-ink-"));
+    const webDir = path.join(tempDir, "apps", "web", "generated");
+    const serverDir = path.join(tempDir, "apps", "server", "generated");
+
+    try {
+      await generateOutput(routes, makeConfig([webDir, { dir: serverDir, hooks: false }]));
+
+      const webRoot = path.join(webDir, "api-client");
+      const serverRoot = path.join(serverDir, "api-client");
+      const webHook = fs.readFileSync(path.join(webRoot, "endpoints", "users", "GetUsers.ts"), "utf-8");
+      const serverFile = fs.readFileSync(path.join(serverRoot, "endpoints", "users", "GetUsers.ts"), "utf-8");
+
+      expect(webHook).toContain("useGetUsersSuspenseQuery");
+      expect(fs.existsSync(path.join(webRoot, "util", "RouteInkContext.ts"))).toBe(true);
+
+      expect(serverFile).toContain("export const getUsers = async");
+      expect(serverFile).not.toContain("useGetUsersSuspenseQuery");
+      expect(fs.existsSync(path.join(serverRoot, "util", "RouteInkContext.ts"))).toBe(false);
+
+      // Nothing in the server output may pull in React or the hook APIs
+      const serverFiles = fs.readdirSync(serverRoot, { recursive: true, encoding: "utf-8" })
+        .filter((file) => file.endsWith(".ts"))
+        .map((file) => fs.readFileSync(path.join(serverRoot, file), "utf-8"));
+
+      for (const contents of serverFiles) {
+        expect(contents).not.toMatch(/from "react"/);
+        expect(contents).not.toMatch(/RouteInkContext|useAxiosInstance|useSuspenseQuery|useMutation/);
+        expect(contents).not.toMatch(/^import \{[^}]*\} from "@tanstack\/react-query";/m);
+      }
+    }
+    finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
+

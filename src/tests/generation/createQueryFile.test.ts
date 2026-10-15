@@ -8,6 +8,7 @@ const baseConfig: Config = {
   outputDir: "./src/generated",
   name: "api-client",
   schemaPackage: "@workspace/schemas",
+  hooks: true,
   exportQueryOptions: false,
 };
 
@@ -289,7 +290,7 @@ describe("createQueryFile", () => {
     it("does not export a query options factory when the flag is off", () => {
       const result = createQueryFile(makeEndpoint(), baseConfig, 1);
       expect(result).not.toContain("queryOptions(");
-      expect(result).not.toContain('import type { AxiosInstance } from "axios";');
+      expect(result).not.toContain("getUsersQueryOptions");
     });
 
     describe("get-basic (no params, no query)", () => {
@@ -321,7 +322,7 @@ describe("createQueryFile", () => {
 
       it("factory takes input and hook forwards it", () => {
         const result = createQueryFile(endpoint, optionsConfig, 1);
-        expect(result).toContain("export const getUsersQueryOptions = (axios: AxiosInstance, input: GetUsersQueryInput)");
+        expect(result).toContain("export const getUsersQueryOptions = (axios: AxiosInstance, input: GetUsersInput)");
         expect(result).toContain("...getUsersQueryOptions(axios, input),");
       });
     });
@@ -341,7 +342,7 @@ describe("createQueryFile", () => {
 
       it("factory takes input and hook forwards it", () => {
         const result = createQueryFile(endpoint, optionsConfig, 1);
-        expect(result).toContain("export const getUserQueryOptions = (axios: AxiosInstance, input: GetUserQueryInput)");
+        expect(result).toContain("export const getUserQueryOptions = (axios: AxiosInstance, input: GetUserInput)");
         expect(result).toContain("...getUserQueryOptions(axios, input),");
       });
     });
@@ -362,14 +363,14 @@ describe("createQueryFile", () => {
 
       it("factory takes input and hook forwards it", () => {
         const result = createQueryFile(endpoint, optionsConfig, 1);
-        expect(result).toContain("export const getUserPostsQueryOptions = (axios: AxiosInstance, input: GetUserPostsQueryInput)");
+        expect(result).toContain("export const getUserPostsQueryOptions = (axios: AxiosInstance, input: GetUserPostsInput)");
         expect(result).toContain("...getUserPostsQueryOptions(axios, input),");
       });
     });
 
     it("imports queryOptions from @tanstack/react-query and AxiosInstance from axios", () => {
       const result = createQueryFile(makeEndpoint(), optionsConfig, 1);
-      expect(result).toContain('import { queryOptions, useSuspenseQuery, UseSuspenseQueryOptions } from "@tanstack/react-query";');
+      expect(result).toContain('import { queryOptions, useSuspenseQuery, type QueryKey, type UseSuspenseQueryOptions } from "@tanstack/react-query";');
       expect(result).toContain('import type { AxiosInstance } from "axios";');
     });
 
@@ -385,6 +386,62 @@ describe("createQueryFile", () => {
       expect(result).toContain("const ResponseSchema = UserSchema.array();");
       expect(result).toContain("const QuerySchema = z.object({search: z.string()}).optional();");
       expect(result).toContain("ResponseSchema.parse(response.data)");
+    });
+  });
+});
+
+describe("createQueryFile plain building blocks", () => {
+  const endpoint = makeEndpoint({
+    path: "/offerings/:idOrSku",
+    operationId: "GetOfferingById",
+    params: "OfferingParamsSchema",
+    query: "OfferingQuerySchema",
+    schemaImports: ["UserSchema", "OfferingParamsSchema", "OfferingQuerySchema"],
+  });
+
+  it("exports the input type, key builder and fetcher", () => {
+    const result = createQueryFile(endpoint, baseConfig, 1);
+    expect(result).toContain("export type GetOfferingByIdInput = {");
+    expect(result).toContain("export const getOfferingByIdQueryKey = (input: GetOfferingByIdInput): QueryKey => {");
+    expect(result).toContain('return buildQueryKey(injectParams("/offerings/:idOrSku", OfferingParamsSchema, params), query);');
+    expect(result).toContain("export const getOfferingById = async (axios: AxiosInstance, input: GetOfferingByIdInput, config?: { signal?: AbortSignal }): Promise<z.infer<typeof UserSchema>> => {");
+    expect(result).toContain("signal: config?.signal,");
+  });
+
+  it("builds the suspense hook from the key builder and fetcher", () => {
+    const result = createQueryFile(endpoint, baseConfig, 1);
+    expect(result).toContain("queryKey: getOfferingByIdQueryKey(input),");
+    expect(result).toContain("queryFn: (context) => getOfferingById(axios, input, { signal: context.signal }),");
+  });
+
+  it("takes no input for endpoints without params or query", () => {
+    const result = createQueryFile(makeEndpoint(), baseConfig, 1);
+    expect(result).toContain('export const getUsersQueryKey = (): QueryKey => buildQueryKey("/users");');
+    expect(result).toContain("export const getUsers = async (axios: AxiosInstance, config?: { signal?: AbortSignal })");
+    expect(result).not.toContain("GetUsersInput");
+  });
+
+  describe("with hooks disabled", () => {
+    const serverConfig: Config = { ...baseConfig, hooks: false };
+
+    it("produces the correct output", () => {
+      expect(createQueryFile(endpoint, serverConfig, 1)).toMatchSnapshot();
+    });
+
+    it("emits no React, hook or context imports", () => {
+      const result = createQueryFile(endpoint, serverConfig, 1);
+      expect(result).toContain('import type { QueryKey } from "@tanstack/react-query";');
+      expect(result).not.toContain("useSuspenseQuery");
+      expect(result).not.toContain("useAxiosInstance");
+      expect(result).not.toContain("type-fest");
+      expect(result).toContain('import { buildQueryKey, injectParams, serializeSearchQuery } from "../util";');
+    });
+
+    it("still exports queryOptions when requested", () => {
+      const result = createQueryFile(endpoint, { ...serverConfig, exportQueryOptions: true }, 1);
+      expect(result).toContain('import { queryOptions, type QueryKey } from "@tanstack/react-query";');
+      expect(result).toContain("export const getOfferingByIdQueryOptions = (axios: AxiosInstance, input: GetOfferingByIdInput) => queryOptions({");
+      expect(result).not.toContain("useSuspenseQuery");
     });
   });
 });

@@ -47,6 +47,7 @@ Given `*.route.ts` files with `schema` definitions, the CLI generates:
 
 - Query hooks for `GET`
 - Mutation hooks for `POST`, `PUT`, `PATCH`, `DELETE`
+- Plain, React-free building blocks per endpoint: a fetcher, a query key builder (queries), an invalidation key builder (mutations) and an input type
 - Utility files (`injectParams`, `serializeSearchQuery`, `buildQueryKey`, `QueryError`)
 
 Generated hooks are typed with your schema package and parse responses with Zod where response schemas exist.
@@ -74,6 +75,7 @@ Create `routeink.json` in the project where you run the command:
   "outputDir": "./src/generated",
   "name": "api-client",
   "schemaPackage": "@workspace/schemas",
+  "hooks": true,
   "exportQueryOptions": false
 }
 ```
@@ -81,9 +83,10 @@ Create `routeink.json` in the project where you run the command:
 | Field | Default | Description |
 |---|---|---|
 | `routesDir` | `../api/src/routes` | Where Route Ink scans for `*.route.ts` |
-| `outputDir` | (required) | Destination parent directory, or an array of directories |
+| `outputDir` | (required) | Destination parent directory, a per-output options object, or an array of either (see below) |
 | `name` | `api-client` | Output folder name inside `outputDir` |
 | `schemaPackage` | `@workspace/schemas` | Package to import schema symbols from |
+| `hooks` | `true` | Generate React Query hooks and `RouteInkProvider`. `false` emits only the plain building blocks (see below) |
 | `exportQueryOptions` | `false` | Also export a `queryOptions` factory per query (see below) |
 
 #### Multiple output directories
@@ -103,6 +106,23 @@ If one API serves several frontend apps in a monorepo, pass an array to `outputD
 
 Each `<outputDir>/<name>` folder is cleared and regenerated on every run. Two entries that resolve to the same path are rejected.
 
+#### Per-output options
+
+An `outputDir` entry can be an object instead of a string. It takes the directory as `dir` and can override `hooks` and `exportQueryOptions` for that directory only. Unset fields fall back to the top-level values; unknown keys are rejected.
+
+```json
+{
+  "routesDir": "src/routes",
+  "name": "customer-api",
+  "outputDir": [
+    "../feedback/src/generated",
+    { "dir": "../customer-portal/src/generated", "hooks": false }
+  ]
+}
+```
+
+Here `feedback` gets the full hook client, while `customer-portal` (which only calls the API from server functions) gets fetchers, key builders, invalidation keys and types. With `hooks: false` nothing in the output imports `react`, the React Query hooks or `RouteInkProvider`, so it is safe to import from server-only code. The only `@tanstack/react-query` import left is `import type { QueryKey }`, plus `queryOptions` if `exportQueryOptions` is on for that entry.
+
 ### Running
 
 ```bash
@@ -120,14 +140,17 @@ Validation errors stop generation. CLI output uses colored status badges and tab
   mutations.ts
   endpoints/
     index.ts
-    ...generated endpoint hooks
+    ...one file per endpoint
   util/
     buildQueryKey.ts
     injectParams.ts
     serializeSearchQuery.ts
     QueryError.ts
+    RouteInkContext.ts   (only when hooks are enabled)
     index.ts
 ```
+
+Every symbol below is re-exported from `index.ts`; `queries.ts` and `mutations.ts` hold the query and mutation subsets.
 
 ### Supported endpoint shapes
 
@@ -172,6 +195,50 @@ createUser.mutate({ body: { name: "Sam", email: "sam@example.com" } });
 updateUser.mutate({ params: { userId: "42" }, body: { name: "Updated" } });
 ```
 
+### Fetchers, key builders and invalidation keys
+
+Every endpoint file also exports plain functions with no React or context dependency. The hooks are built from them, so they share the same fetch logic, query keys and invalidation. Names come from the `operationId` (`GetOfferingById` → `getOfferingById`).
+
+| Export | For | Description |
+|---|---|---|
+| `<op>(axios, input, config?)` | queries | Fetches and returns the parsed response. `config.signal` is passed to Axios |
+| `<op>(axios, input)` | mutations | Sends the request and returns the parsed response, or `undefined` when the route has no response schema |
+| `<op>QueryKey(input)` | queries | The query key the suspense hook uses |
+| `<op>InvalidationKey({ params })` | mutations | The key the mutation hook invalidates by default: the URL path minus its last segment |
+| `<Op>Input` | both | The input type (`{ params, query }` for queries, `{ params, body }` for mutations) |
+
+Endpoints without params, query or body take no `input` argument and have no `<Op>Input` type. Fetchers validate params with the params schema, serialise the query string and parse the response with Zod, exactly like the hooks. Axios errors are rethrown untouched (`AxiosError<ApiErrorType>`, i.e. `QueryError`).
+
+Calling the API from a server function (e.g. TanStack Start's `createServerFn`):
+
+```ts
+import { getOfferingById, type GetOfferingByIdInput } from "./generated/customer-api";
+
+export const fetchOffering = createServerFn({ method: "GET" })
+  .inputValidator((input: GetOfferingByIdInput) => input)
+  .handler(({ data }) => getOfferingById(serverAxios, data));
+```
+
+Using the same keys from a component, so cache entries line up with what the hooks would use:
+
+```tsx
+import { getOfferingByIdQueryKey, upsertWeeklySurveyAnswerInvalidationKey, type UpsertWeeklySurveyAnswerInput } from "./generated/customer-api";
+
+const input = { params: { idOrSku } };
+const { data } = useSuspenseQuery({
+  queryKey: getOfferingByIdQueryKey(input),
+  queryFn: () => fetchOffering({ data: input }),
+});
+
+const queryClient = useQueryClient();
+const answer = useMutation({
+  mutationFn: (variables: UpsertWeeklySurveyAnswerInput) => upsertAnswer({ data: variables }),
+  onSettled: (_data, _error, variables) => queryClient.invalidateQueries({
+    queryKey: upsertWeeklySurveyAnswerInvalidationKey(variables),
+  }),
+});
+```
+
 ### Query options export
 
 With `"exportQueryOptions": true`, every query file additionally exports a [`queryOptions`](https://tanstack.com/query/latest/docs/framework/react/guides/query-options) factory. It is a plain function (not a hook) taking your Axios instance, so it also works outside React — router loaders, prefetching, `queryClient.ensureQueryData`:
@@ -186,7 +253,7 @@ await queryClient.ensureQueryData(getUserQueryOptions(api, { params: { userId: "
 const { data } = useQuery(getUserQueryOptions(api, { params: { userId: "42" } }));
 ```
 
-The factory is named after the `operationId` with the first letter lowercased plus a `QueryOptions` suffix (`GetUser` → `getUserQueryOptions`). The generated suspense hook consumes the same factory internally, so query keys and fetch logic stay in one place.
+The factory is named after the `operationId` with the first letter lowercased plus a `QueryOptions` suffix (`GetUser` → `getUserQueryOptions`). It is built from the endpoint's fetcher and key builder, and the generated suspense hook consumes the factory internally, so query keys and fetch logic stay in one place.
 
 ### Troubleshooting
 

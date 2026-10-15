@@ -1,15 +1,18 @@
 import fs from "fs";
 import path from "path";
+import type { GenerationOptions } from "../schemas/config.schema.js";
 import type { RouteFile } from "../types/RouteFile.js";
+import { type EndpointKind, getEndpointExports, getEndpointKind } from "./util/getEndpointShape.js";
 import { getRouteOutputDirectory } from "./util/getRouteOutputDirectory.js";
 
-type GeneratedHookKind = "query" | "mutation";
+type BarrelOptions = Pick<GenerationOptions, "hooks" | "exportQueryOptions">;
 
-type GeneratedHookExport = {
+type GeneratedExport = {
   exportName: string;
   importPath: string;
   directoryPath: string;
-  kind: GeneratedHookKind;
+  kind: EndpointKind;
+  isType: boolean;
 };
 
 const toImportPath = (fromDirectory: string, targetPath: string) => {
@@ -20,10 +23,12 @@ const toImportPath = (fromDirectory: string, targetPath: string) => {
     : `./${relativePath}`;
 };
 
-const createExportStatement = (exportName: string, importPath: string) => `export { ${exportName} } from "${importPath}";`;
+// Types are re-exported with `export type` so consumers using isolatedModules
+// can re-export them.
+const createExportStatement = (generatedExport: GeneratedExport, fromDirectory: string) => `export ${generatedExport.isType ? "type " : ""}{ ${generatedExport.exportName} } from "${toImportPath(fromDirectory, generatedExport.importPath)}";`;
 
-export const getGeneratedHookExports = (routes: Pick<RouteFile, "relativePath" | "endpoints">[]): GeneratedHookExport[] => {
-  const generatedExports: GeneratedHookExport[] = [];
+export const getGeneratedExports = (routes: Pick<RouteFile, "relativePath" | "endpoints">[], options: BarrelOptions): GeneratedExport[] => {
+  const generatedExports: GeneratedExport[] = [];
 
   for (const routeFile of routes) {
     const routeOutputDirectory = getRouteOutputDirectory(routeFile.relativePath);
@@ -32,34 +37,34 @@ export const getGeneratedHookExports = (routes: Pick<RouteFile, "relativePath" |
       : path.posix.join("endpoints", routeOutputDirectory);
 
     for (const endpoint of routeFile.endpoints) {
-      if (endpoint.method !== "GET" && endpoint.method !== "POST" && endpoint.method !== "PUT" && endpoint.method !== "PATCH" && endpoint.method !== "DELETE") {
+      const kind = getEndpointKind(endpoint);
+
+      if (!kind) {
         continue;
       }
 
-      const kind: GeneratedHookKind = endpoint.method === "GET" ? "query" : "mutation";
-      const exportName = endpoint.method === "GET"
-        ? `use${endpoint.operationId}SuspenseQuery`
-        : `use${endpoint.operationId}Mutation`;
-
-      generatedExports.push({
-        exportName,
-        importPath: path.posix.join(directoryPath, endpoint.operationId),
-        directoryPath,
-        kind,
-      });
+      for (const endpointExport of getEndpointExports(endpoint, options)) {
+        generatedExports.push({
+          exportName: endpointExport.name,
+          importPath: path.posix.join(directoryPath, endpoint.operationId),
+          directoryPath,
+          kind,
+          isType: endpointExport.isType,
+        });
+      }
     }
   }
 
   return generatedExports.sort((left, right) => left.exportName.localeCompare(right.exportName));
 };
 
-export const buildBarrelFileContents = (routes: Pick<RouteFile, "relativePath" | "endpoints">[]): Record<string, string> => {
-  const generatedHookExports = getGeneratedHookExports(routes);
+export const buildBarrelFileContents = (routes: Pick<RouteFile, "relativePath" | "endpoints">[], options: BarrelOptions): Record<string, string> => {
+  const generatedExports = getGeneratedExports(routes, options);
   const barrelFiles: Record<string, string> = {};
   const directoryPaths = new Set<string>(["endpoints"]);
 
-  for (const generatedHookExport of generatedHookExports) {
-    const directorySegments = generatedHookExport.directoryPath.split("/");
+  for (const generatedExport of generatedExports) {
+    const directorySegments = generatedExport.directoryPath.split("/");
 
     for (let index = 1; index <= directorySegments.length; index += 1) {
       directoryPaths.add(directorySegments.slice(0, index).join("/"));
@@ -67,35 +72,23 @@ export const buildBarrelFileContents = (routes: Pick<RouteFile, "relativePath" |
   }
 
   for (const directoryPath of Array.from(directoryPaths).sort()) {
-    const exportStatements = generatedHookExports
-      .filter((generatedHookExport) => generatedHookExport.directoryPath === directoryPath || generatedHookExport.directoryPath.startsWith(`${directoryPath}/`))
-      .map((generatedHookExport) => createExportStatement(
-        generatedHookExport.exportName,
-        toImportPath(directoryPath, generatedHookExport.importPath),
-      ));
+    const exportStatements = generatedExports
+      .filter((generatedExport) => generatedExport.directoryPath === directoryPath || generatedExport.directoryPath.startsWith(`${directoryPath}/`))
+      .map((generatedExport) => createExportStatement(generatedExport, directoryPath));
 
     barrelFiles[path.posix.join(directoryPath, "index.ts")] = `${exportStatements.join("\n")}\n`;
   }
 
-  const queryExports = generatedHookExports
-    .filter((generatedHookExport) => generatedHookExport.kind === "query")
-    .map((generatedHookExport) => createExportStatement(
-      generatedHookExport.exportName,
-      toImportPath("", generatedHookExport.importPath),
-    ));
+  const queryExports = generatedExports
+    .filter((generatedExport) => generatedExport.kind === "query")
+    .map((generatedExport) => createExportStatement(generatedExport, ""));
 
-  const mutationExports = generatedHookExports
-    .filter((generatedHookExport) => generatedHookExport.kind === "mutation")
-    .map((generatedHookExport) => createExportStatement(
-      generatedHookExport.exportName,
-      toImportPath("", generatedHookExport.importPath),
-    ));
+  const mutationExports = generatedExports
+    .filter((generatedExport) => generatedExport.kind === "mutation")
+    .map((generatedExport) => createExportStatement(generatedExport, ""));
 
   const rootExports = [
-    ...generatedHookExports.map((generatedHookExport) => createExportStatement(
-      generatedHookExport.exportName,
-      toImportPath("", generatedHookExport.importPath),
-    )),
+    ...generatedExports.map((generatedExport) => createExportStatement(generatedExport, "")),
     'export * from "./util";',
   ];
 
@@ -106,8 +99,8 @@ export const buildBarrelFileContents = (routes: Pick<RouteFile, "relativePath" |
   return barrelFiles;
 };
 
-export const createBarrelFiles = (routes: Pick<RouteFile, "relativePath" | "endpoints">[], outputRoot: string) => {
-  const barrelFiles = buildBarrelFileContents(routes);
+export const createBarrelFiles = (routes: Pick<RouteFile, "relativePath" | "endpoints">[], outputRoot: string, options: BarrelOptions) => {
+  const barrelFiles = buildBarrelFileContents(routes, options);
 
   for (const [relativeFilePath, content] of Object.entries(barrelFiles)) {
     const outputFilePath = path.join(outputRoot, relativeFilePath);

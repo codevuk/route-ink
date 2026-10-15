@@ -1,104 +1,145 @@
-import type { Config } from "../schemas/config.schema.js";
+import type { GenerationOptions } from "../schemas/config.schema.js";
 import type { Endpoint } from "../types/Endpoint.js";
+import { getSchemaReference, joinLines, joinSections, renderFileHeader, renderImport } from "./util/codegen.js";
 import { cleanupImports } from "./util/cleanupImports.js";
-import { compileTemplate } from "./compileTemplate.js";
-import { loadTemplateFile } from "./loadTemplateFile.js";
-import { isComplexSchema } from "./util/isComplexSchema.js";
+import { getEndpointShape } from "./util/getEndpointShape.js";
 
-export const createMutationFile = (endpoint: Endpoint, config: Config, nestingLevel: number): string => {
-  const { schemaPackage } = config;
-  const { body, params, schemaImports, response } = endpoint;
-  const supportsBody = endpoint.method !== "DELETE";
-  const effectiveBody = supportsBody ? body : undefined;
+/**
+ * Generates the file for a POST/PUT/PATCH/DELETE endpoint. Every file exports
+ * a plain fetcher and an invalidation key builder (no React); the `hooks`
+ * option adds the mutation hook, built from both.
+ */
+export const createMutationFile = (endpoint: Endpoint, options: GenerationOptions, nestingLevel: number): string => {
+  const shape = getEndpointShape(endpoint);
 
-  let templateFile: string;
-
-  if (effectiveBody && params) {
-    templateFile = "mutation-with-body-and-params.ts.template";
-  }
-  else if (params) {
-    templateFile = "mutation-with-params.ts.template";
-  }
-  else if (effectiveBody) {
-    templateFile = "mutation-with-body.ts.template";
-  }
-  else {
-    templateFile = "mutation-basic.ts.template";
+  if (!shape || shape.kind !== "mutation") {
+    throw new Error(`Cannot create a mutation file for ${endpoint.method} ${endpoint.path}`);
   }
 
-  const template = loadTemplateFile(templateFile);
+  const { schemaPackage, hooks } = options;
+  const { operationId, path } = endpoint;
+  const { fetcherName, inputTypeName, params, body, hasInput } = shape;
 
   const nesting = "../".repeat(nestingLevel);
 
-  const responseSchema = response[200] || response[201] || response[202] || response[204];
-  const hasResponseSchema = Boolean(responseSchema);
-  const isResponseComplex = isComplexSchema(responseSchema);
-  const isBodyComplex = isComplexSchema(effectiveBody);
-  const isParamsComplex = isComplexSchema(params);
+  const responseSchema = endpoint.response[200] || endpoint.response[201] || endpoint.response[202] || endpoint.response[204];
+  const paramsSchema = params ? getSchemaReference(params, "ParamsSchema") : null;
+  const bodySchema = body ? getSchemaReference(body, "BodySchema") : null;
+  const responseRef = responseSchema ? getSchemaReference(responseSchema, "ResponseSchema") : null;
+  const responseType = responseRef
+    ? `z.output<typeof ${responseRef.ref}>`
+    : "undefined";
 
-  const responseSchemaRef = hasResponseSchema
-    ? isResponseComplex
-      ? "ResponseSchema"
-      : responseSchema
-    : undefined;
+  const inputParam = hasInput ? `input: ${inputTypeName}` : null;
+  const url = paramsSchema
+    ? `injectParams("${path}", ${paramsSchema.ref}, params)`
+    : `"${path}"`;
+  const request = `axios.${endpoint.method.toLowerCase()}(${["url", bodySchema && "body"].filter(Boolean).join(", ")})`;
 
-  const axiosRequestWithBody = `axios.${endpoint.method.toLowerCase()}(urlWithParams, body)`;
+  const imports = joinLines([
+    renderImport(
+      "@tanstack/react-query",
+      hooks ? ["useMutation", "useQueryClient"] : [],
+      ["QueryKey", ...(hooks ? ["UseMutationOptions"] : [])],
+    ),
+    renderImport("axios", [], ["AxiosInstance"]),
+    hooks && renderImport("type-fest", [], ["Except"]),
+    'import z from "zod/v4";',
+    renderImport(schemaPackage, [...new Set(endpoint.schemaImports)]),
+    renderImport(`${nesting}util`, [
+      ...(paramsSchema ? ["injectParams"] : []),
+      ...(hooks ? ["QueryError", "useAxiosInstance"] : []),
+    ]),
+  ]);
 
-  const axiosRequestBodyOnly = `axios.${endpoint.method.toLowerCase()}(url, body)`;
+  const schemaConsts = joinLines([
+    paramsSchema?.declaration,
+    bodySchema?.declaration,
+    responseRef?.declaration,
+  ]);
 
-  const axiosRequestParamsOnly = `axios.${endpoint.method.toLowerCase()}(urlWithParams)`;
-  const axiosRequestBasic = `axios.${endpoint.method.toLowerCase()}(url)`;
-  const axiosRequest = effectiveBody && params
-    ? axiosRequestWithBody
-    : params
-      ? axiosRequestParamsOnly
-      : effectiveBody
-        ? axiosRequestBodyOnly
-        : axiosRequestBasic;
-  const mutation_request_statement = responseSchemaRef
-    ? `const response = await ${axiosRequest};`
-    : `await ${axiosRequest};`;
-  const mutation_return_statement = responseSchemaRef
-    ? `return ${responseSchemaRef}.parse(response.data);`
-    : "return undefined;";
+  const inputType = hasInput && joinLines([
+    `export type ${inputTypeName} = {`,
+    paramsSchema && `  params: z.output<typeof ${paramsSchema.ref}>;`,
+    bodySchema && `  body: z.output<typeof ${bodySchema.ref}>;`,
+    "};",
+  ]);
 
-  return cleanupImports(compileTemplate(template, {
-    method: endpoint.method,
-    method_lower: endpoint.method.toLowerCase(),
-    path: endpoint.path,
-    identifier: endpoint.operationId,
-    schema_imports: [...new Set(schemaImports)].join(", "),
-    schema_package: schemaPackage,
-    nesting,
-    body_schema: effectiveBody,
-    body_schema_const: isBodyComplex
-      ? `const BodySchema = ${effectiveBody};`
-      : "",
-    body_schema_ref: isBodyComplex
-      ? "BodySchema"
-      : effectiveBody,
-    params_schema: params,
-    params_schema_const: isParamsComplex
-      ? `const ParamsSchema = ${params};`
-      : "",
-    params_schema_ref: isParamsComplex
-      ? "ParamsSchema"
-      : params,
-    response_schema: responseSchema,
-    response_schema_const: hasResponseSchema
-      ? isResponseComplex
-        ? `const ResponseSchema = ${responseSchema};`
-        : ""
-      : "",
-    response_schema_ref: responseSchemaRef,
-    mutation_response_type: responseSchemaRef
-      ? `z.output<typeof ${responseSchemaRef}>`
-      : "undefined",
-    mutation_request_statement,
-    mutation_return_statement,
-    axios_request_with_body: axiosRequestWithBody,
-    axios_request_body_only: axiosRequestBodyOnly,
-    axios_request_params_only: axiosRequestParamsOnly,
-    axios_request_basic: axiosRequestBasic,
-  }));
+  const fetcher = joinLines([
+    `export const ${fetcherName} = async (${["axios: AxiosInstance", inputParam].filter(Boolean).join(", ")}): Promise<${responseType}> => {`,
+    hasInput && `  const { ${[paramsSchema && "params", bodySchema && "body"].filter(Boolean).join(", ")} } = input;\n`,
+    `  const url = ${url};`,
+    "",
+    responseRef
+      ? `  const response = await ${request};`
+      : `  await ${request};`,
+    "",
+    responseRef
+      ? `  return ${responseRef.ref}.parse(response.data);`
+      : "  return undefined;",
+    "};",
+  ]);
+
+  // The default the mutation hook invalidates: the URL path minus its last
+  // segment, e.g. `/users/42/orders` -> ["users", "42"].
+  const invalidationKey = paramsSchema
+    ? joinLines([
+      `export const ${fetcherName}InvalidationKey = (input: Pick<${inputTypeName}, "params">): QueryKey => injectParams("${path}", ${paramsSchema.ref}, input.params)`,
+      "  .split(\"/\")",
+      "  .filter(Boolean)",
+      "  .slice(0, -1);",
+    ])
+    : joinLines([
+      `export const ${fetcherName}InvalidationKey = (): QueryKey => "${path}"`,
+      "  .split(\"/\")",
+      "  .filter(Boolean)",
+      "  .slice(0, -1);",
+    ]);
+
+  const hook = hooks && joinLines([
+    "type Options = UseMutationOptions<",
+    `  ${responseType},`,
+    "  QueryError,",
+    `  ${hasInput ? inputTypeName : "void"}`,
+    "> & {",
+    `  queryKeyInvalidation?: string[] | ((response: ${responseType} | undefined) => string[]);`,
+    "};",
+    "",
+    `export const use${operationId}Mutation = (options: Except<Options, "onSettled" | "mutationFn"> = {}) => {`,
+    "  const axios = useAxiosInstance();",
+    "  const { queryKeyInvalidation } = options;",
+    "",
+    "  const client = useQueryClient();",
+    "",
+    "  return useMutation({",
+    hasInput
+      ? `    mutationFn: (input: ${inputTypeName}) => ${fetcherName}(axios, input),`
+      : `    mutationFn: () => ${fetcherName}(axios),`,
+    `    onSettled: (${paramsSchema ? "response, _error, variables" : "response"}) => {`,
+    "      const invalidationKeys = typeof queryKeyInvalidation === \"function\"",
+    "        ? queryKeyInvalidation(response)",
+    "        : queryKeyInvalidation;",
+    "",
+    "      if (invalidationKeys) {",
+    "        client.invalidateQueries({ queryKey: invalidationKeys });",
+    "        return;",
+    "      }",
+    "",
+    `      client.invalidateQueries({ queryKey: ${fetcherName}InvalidationKey(${paramsSchema ? "variables" : ""}) });`,
+    "    },",
+    "    ...options,",
+    "  });",
+    "};",
+  ]);
+
+  // `z` is only referenced through schema types, so a mutation without any
+  // schema leaves the zod import unused.
+  return cleanupImports(joinSections([
+    joinLines([renderFileHeader("mutation", endpoint.method, path), imports]),
+    schemaConsts,
+    inputType,
+    fetcher,
+    invalidationKey,
+    hook,
+  ]));
 };
